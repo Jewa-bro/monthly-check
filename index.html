@@ -343,7 +343,10 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
     <div class="qs" id="eQS"></div>
 
     <label class="bignum empty" id="numBox" for="count">
-      <input id="count" type="number" min="0" step="1" inputmode="none" placeholder="0">
+      <!-- readonly 가 핵심: 기기 소프트 키보드를 아예 호출하지 않는다.
+           inputmode="none" 만으로는 안드로이드에서 무시될 수 있다.
+           값은 키패드가 넣고, PC 물리 키보드는 아래 keydown 에서 받는다 -->
+      <input id="count" type="text" inputmode="none" readonly autocomplete="off" placeholder="0">
       <span class="unit">건</span>
     </label>
     <div class="helper" id="eHelp"></div>
@@ -388,7 +391,7 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
     </div>
     <div class="qs" id="pQS">이 날부터 바꿀 때까지 계속 적용돼요</div>
     <label class="bignum empty" id="pBox" for="price">
-      <input id="price" type="number" min="0" step="10" inputmode="none" placeholder="0">
+      <input id="price" type="text" inputmode="none" readonly autocomplete="off" placeholder="0">
       <span class="unit">원</span>
     </label>
     <div class="helper" id="pHelp"></div>
@@ -468,6 +471,7 @@ let sheetMode;       // 'month-home' | 'month-bulk' | 'date' | 'date-rate'
 let curView = 'home';
 let sheetOn = false;
 let padTarget = null;   // 키패드가 값을 넣을 입력칸
+let padFresh = false;   // 아직 손대지 않은 값 — 첫 숫자를 누르면 대체된다
 let afterBack = null;   // 뒤로가기가 끝난 뒤 이어서 할 일 (시트에서 값을 고른 경우)
 let toastTimer = null;
 
@@ -589,6 +593,7 @@ function show(v){
   window.scrollTo(0,0);
   // 숫자 하나만 넣는 화면에서는 직접 만든 키패드를 띄운다
   padTarget = v === 'entry' ? $('count') : v === 'price' ? $('price') : null;
+  padFresh = !!(padTarget && padTarget.value);   // 채워진 값은 첫 숫자에 대체된다
   showPad(!!padTarget);
 }
 function showPad(on){
@@ -600,13 +605,21 @@ function showPad(on){
     if (h) document.documentElement.style.setProperty('--padH', h + 'px');
   }
 }
-/* 키패드 입력 — 앞자리 0 이 쌓이지 않게, 너무 큰 수도 막는다 */
+/* 키패드 입력
+   - 이미 값이 있는 칸에 들어와 처음 누르는 숫자는 기존 값을 '대체'한다.
+     고치러 들어온 것이 대부분이라, 뒤에 붙으면 ⌫ 를 여러 번 눌러야 한다
+   - 앞자리 0 이 쌓이지 않게, 7자리를 넘지 않게 막는다 */
 function padPress(k){
   const el = padTarget;
   if (!el) return;
   let v = el.value;
-  if (k === 'del') v = v.slice(0, -1);
-  else if (v.length + k.length <= 7) v = (v === '0' ? '' : v) + k;
+  if (k === 'del'){
+    v = v.slice(0, -1);
+    padFresh = false;
+  } else {
+    if (padFresh){ v = ''; padFresh = false; }
+    if (v.length + k.length <= 7) v = (v === '0' ? '' : v) + k;
+  }
   el.value = v.replace(/^0+(?=\d)/, '');
   el.dispatchEvent(new Event('input', { bubbles:true }));
 }
@@ -753,7 +766,7 @@ function renderBulk(){
     const el = document.createElement('div');
     el.className = 'brow' + (isChanged(d) ? ' chg' : '');
     el.innerHTML = `<span class="bd">${mdDow(d)}${d===today?'<span class="tag">오늘</span>':''}</span>` +
-      `<input type="number" min="0" step="1" inputmode="none" placeholder="-" data-d="${d}" value="${cur}">` +
+      `<input type="text" inputmode="none" readonly autocomplete="off" placeholder="-" data-d="${d}" value="${cur}">` +
       `<span class="bu">건</span>`;
     box.appendChild(el);
   }
@@ -974,8 +987,22 @@ $('pad').addEventListener('click', e => {
   if (b) padPress(b.dataset.k);
 });
 
+/* PC 물리 키보드도 키패드와 같은 길로 처리한다.
+   입력칸이 readonly 라서 직접 타이핑은 들어오지 않기 때문 */
+document.addEventListener('keydown', e => {
+  if (!padTarget || sheetOn || e.ctrlKey || e.altKey || e.metaKey) return;
+  if (e.key >= '0' && e.key <= '9'){ padPress(e.key); e.preventDefault(); return; }
+  if (e.key === 'Backspace'){ padPress('del'); e.preventDefault(); return; }
+  if (e.key === 'Enter'){
+    const cta = curView === 'entry' ? $('ctaSave')
+              : curView === 'price' ? $('ctaPrice')
+              : curView === 'bulk'  ? $('ctaBulk') : null;
+    if (cta && !cta.disabled) cta.click();
+    e.preventDefault();
+  }
+});
+
 $('count').oninput = renderEntry;
-$('count').onkeydown = e => { if (e.key === 'Enter' && !$('ctaSave').disabled) $('ctaSave').click(); };
 $('dateField').onclick = () => { if (editMode !== 'edit') openSheet('date'); };
 
 $('ctaSave').onclick = () => {
@@ -994,17 +1021,22 @@ $('btnDel').onclick = () => {
   toast(`${dayWord(editDate)} 기록을 지웠어요`);
 };
 
-/* 일괄 입력은 칸이 많으니, 누른 칸에 키패드를 붙였다가 벗어나면 내린다 */
-$('bulkList').addEventListener('focusin', e => {
-  if (e.target.tagName !== 'INPUT') return;
-  padTarget = e.target;
+/* 일괄 입력은 칸이 많으니, 누른 칸에 키패드를 붙였다가 벗어나면 내린다.
+   기기에 따라 readonly 칸의 포커스 동작이 달라서 focusin 과 click 양쪽에 걸어둔다 */
+function bulkPick(el){
+  if (!el || el.tagName !== 'INPUT') return;
+  if (padTarget === el) return;                  // 같은 칸을 다시 눌렀으면 대체 상태를 되살리지 않는다
+  padTarget = el;
+  padFresh = !!el.value;
   showPad(true);
   // 키패드에 가려지지 않게 그 줄을 끌어올린다
   const padH = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--padH')) || 240;
   const limit = window.innerHeight - padH - 96;
-  const b = e.target.getBoundingClientRect();
+  const b = el.getBoundingClientRect();
   if (b.bottom > limit) window.scrollBy({ top: b.bottom - limit + 12, behavior:'smooth' });
-});
+}
+$('bulkList').addEventListener('focusin', e => bulkPick(e.target));
+$('bulkList').addEventListener('click', e => bulkPick(e.target));
 $('bulkList').addEventListener('focusout', () => {
   // 키패드를 누르는 동안에는 포커스가 유지되므로(mousedown 차단) 여기서 내려도 안전하다
   if (curView === 'bulk'){ padTarget = null; showPad(false); }
@@ -1032,7 +1064,6 @@ $('ctaBulk').onclick = () => {
 };
 
 $('price').oninput = renderPrice;
-$('price').onkeydown = e => { if (e.key === 'Enter' && !$('ctaPrice').disabled) $('ctaPrice').click(); };
 $('rateDateField').onclick = () => openSheet('date-rate');
 $('ctaPrice').onclick = () => {
   const n = Math.max(0, Math.floor(Number($('price').value)));
