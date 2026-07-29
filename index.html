@@ -108,11 +108,15 @@ button{font:inherit; letter-spacing:inherit; cursor:pointer}
 .field .c{color:var(--t4); display:flex}
 
 /* ───── 큰 숫자 입력 ───── */
-.q{font-size:26px; font-weight:800; letter-spacing:-0.035em; line-height:1.35; margin:12px 0 4px}
-.qs{font-size:16px; color:var(--t3); font-weight:500}
+.q{font-size:26px; font-weight:800; letter-spacing:-0.035em; line-height:1.35; margin:12px 0 6px}
+/* 날짜 = 값의 맥락. 제목 바로 아래, 값보다 앞에, 값보다 가볍게 */
+.dateline{margin:0 0 2px -10px}
+.pill.static{color:var(--t2); font-weight:600; pointer-events:none}
+.qs{font-size:15px; color:var(--t3); font-weight:500; min-height:22px; padding-left:2px}
+.qs b{color:var(--t2); font-weight:600}
 .bignum{
   display:flex; align-items:baseline; justify-content:center; gap:8px;
-  width:100%; min-height:132px; padding:26px 0 22px; margin:24px 0 0;
+  width:100%; min-height:132px; padding:26px 0 22px; margin:14px 0 0;
   border-bottom:2px solid var(--press); cursor:text; transition:border-color .15s;
 }
 .bignum:focus-within{border-bottom-color:var(--blue)}
@@ -130,6 +134,7 @@ button{font:inherit; letter-spacing:inherit; cursor:pointer}
   display:block; margin:30px auto 0; border:0; background:none; font:inherit;
   color:var(--t3); font-size:15px; font-weight:500; text-decoration:underline; padding:10px;
 }
+[hidden]{display:none !important}   /* display 를 지정한 요소도 hidden 이면 확실히 감춘다 */
 input[type=number]{-moz-appearance:textfield}
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
@@ -261,6 +266,14 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
       <button class="back" data-back aria-label="뒤로"><svg width="24" height="24"><use href="#i-back"/></svg></button>
     </div>
     <div class="q" id="eQ">건수를 입력해주세요</div>
+
+    <!-- 날짜는 값의 맥락이므로 숫자보다 먼저. 기록하기는 고를 수 있고, 수정은 고정 -->
+    <div class="dateline">
+      <button class="pill sm" id="dateField">
+        <span id="dLabel">-</span>
+        <span class="car" id="dCaret"><svg width="16" height="16"><use href="#i-caret"/></svg></span>
+      </button>
+    </div>
     <div class="qs" id="eQS"></div>
 
     <label class="bignum empty" id="numBox" for="count">
@@ -268,13 +281,6 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
       <span class="unit">건</span>
     </label>
     <div class="helper" id="eHelp"></div>
-
-    <!-- 기록하기: 날짜를 고를 수 있음 / 수정: 그 날짜로 고정 -->
-    <button class="field" id="dateField">
-      <span class="fl">날짜</span>
-      <span class="fv" id="dLabel">-</span>
-      <span class="c" id="dCaret"><svg width="18" height="18"><use href="#i-caret"/></svg></span>
-    </button>
 
     <button class="danger" id="btnDel" hidden>이 날 기록 삭제</button>
     <div class="cta"><div><button class="btn" id="ctaSave" disabled>저장하기</button></div></div>
@@ -501,16 +507,17 @@ function renderEntry(){
   const isEdit = editMode === 'edit';
 
   $('eQ').textContent = isEdit ? `${dayWord(d)} 실적 수정` : `${dayWord(d)} 건수를 입력해주세요`;
-  $('eQS').textContent = known !== undefined
-    ? `지금 ${fmt(known)}건으로 기록되어 있어요`
-    : (isEdit ? '' : '숫자만 넣으면 됩니다');
 
-  // 수정은 그 날짜로 고정, 기록하기는 날짜를 고를 수 있다
-  $('dLabel').textContent = mdDow(d) + (d === todayStr() ? ' · 오늘' : '');
+  // 날짜: 수정은 그 날짜로 고정(글자만), 기록하기는 눌러서 고를 수 있다(알약)
+  $('dLabel').textContent = mdDow(d);
+  $('dateField').classList.toggle('static', isEdit);
   $('dCaret').style.display = isEdit ? 'none' : 'flex';
   $('dateField').disabled = isEdit;
-  $('dateField').style.background = isEdit ? 'transparent' : 'var(--white)';
-  $('dateField').style.cursor = isEdit ? 'default' : 'pointer';
+
+  // 맥락 줄: 다른 날 기록을 덮어쓰게 되는 경우에만 알려준다
+  $('eQS').innerHTML = (!isEdit && known !== undefined)
+    ? `이미 <b>${fmt(known)}건</b>으로 기록되어 있어요. 저장하면 바뀝니다`
+    : '';
   $('btnDel').hidden = !(isEdit && known !== undefined);
 
   sizeNum($('count'), $('numBox'));
