@@ -110,11 +110,16 @@ button{font:inherit; letter-spacing:inherit; cursor:pointer}
 .row .r small{color:var(--t3); font-weight:500; margin-left:2px; font-size:15px}
 .row .c{color:var(--t4); display:flex; flex:none}
 .blank{padding:30px 0 34px; text-align:center; color:var(--t3); font-size:16px; font-weight:500}
+.txtdel{
+  flex:none; margin-left:4px; padding:8px 2px 8px 10px; border:0; background:none;
+  color:var(--t3); font-size:15px; font-weight:500; text-decoration:underline;
+}
 
 /* 줄 모양 진입 버튼 */
+/* height 를 고정하면 좁은 화면에서 부제가 두 줄이 될 때 잘린다 */
 .field{
-  display:flex; align-items:center; gap:10px; width:100%; height:64px;
-  padding:0 20px; border:0; border-radius:16px; background:var(--white); margin-bottom:14px;
+  display:flex; align-items:center; gap:10px; width:100%; min-height:64px;
+  padding:11px 20px; border:0; border-radius:16px; background:var(--white); margin-bottom:14px;
 }
 .field:active{background:#F7F8F9}
 .field .fl{flex:1; text-align:left; font-size:17px; font-weight:600; color:var(--t1)}
@@ -341,15 +346,24 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
       <button class="back" data-back aria-label="뒤로"><svg width="24" height="24"><use href="#i-back"/></svg></button>
     </div>
     <div class="q">배송 1건에 얼마예요?</div>
-    <!-- 입력 화면의 날짜 줄과 같은 자리·같은 모양 = 이 값이 딸린 대상 -->
-    <div class="dateline"><span class="pill sm static" id="pMonth">-</span></div>
-    <div class="qs" id="pQS"></div>
+    <!-- 입력 화면의 날짜 줄과 같은 자리·같은 모양 = 이 값이 딸린 대상(적용 시작일) -->
+    <div class="dateline">
+      <button class="pill sm" id="rateDateField">
+        <span id="rateDateLabel">-</span>
+        <span class="car"><svg width="16" height="16"><use href="#i-caret"/></svg></span>
+      </button>
+    </div>
+    <div class="qs" id="pQS">이 날부터 바꿀 때까지 계속 적용돼요</div>
     <label class="bignum empty" id="pBox" for="price">
       <input id="price" type="number" min="0" step="10" inputmode="numeric" placeholder="0">
       <span class="unit">원</span>
     </label>
     <div class="helper" id="pHelp"></div>
-    <button class="altlink" id="btnCopyPrice" hidden></button>
+
+    <div class="card" id="rateHistory" hidden>
+      <div class="head"><span>바뀐 단가</span></div>
+      <div id="rateList"></div>
+    </div>
     <div class="cta"><div><button class="btn" id="ctaPrice" disabled>저장하기</button></div></div>
   </div>
 
@@ -398,14 +412,26 @@ let editDate;        // 입력/수정 화면의 날짜
 let editMode;        // 'new' = 기록하기(날짜 변경 가능) / 'edit' = 목록에서 들어온 수정
 let bulkKey;         // 일괄 입력 화면의 정산월
 let bulkDraft = {};  // 일괄 입력 중인 값 {날짜: '문자열'}
-let sheetMode;       // 'month-home' | 'month-bulk' | 'date'
+let rateDate;        // 단가를 적용할 시작일
+let sheetMode;       // 'month-home' | 'month-bulk' | 'date' | 'date-rate'
 let toastTimer = null;
 
 /* ── 저장소 ── */
+function normalize(o){
+  o = o && typeof o === 'object' ? o : {};
+  const daily = o.daily || {};
+  let rates = o.rates;
+  if (!rates){
+    // 옛 구조(달마다 단가) → 새 구조(그 날부터 계속)로 옮긴다.
+    // 옛 키 'YYYY-MM' 은 그 달 26일에 시작하는 기간이었으므로 시작일을 그대로 쓴다
+    rates = {};
+    for (const k in (o.prices || {})) if (o.prices[k]) rates[`${k}-26`] = o.prices[k];
+  }
+  return { daily, rates };
+}
 function load(){
-  try{ const o = JSON.parse(localStorage.getItem(KEY)) || {};
-       return { daily:o.daily||{}, prices:o.prices||{} }; }
-  catch(e){ return { daily:{}, prices:{} }; }
+  try{ return normalize(JSON.parse(localStorage.getItem(KEY))); }
+  catch(e){ return { daily:{}, rates:{} }; }
 }
 const save = () => localStorage.setItem(KEY, JSON.stringify(db));
 
@@ -424,6 +450,8 @@ const dowOf = s => { const [y,m,d]=s.split('-').map(Number);
                      return new Date(Date.UTC(y,m-1,d)).getUTCDay(); };
 const mdText = s => `${Number(s.slice(5,7))}월 ${Number(s.slice(8,10))}일`;
 const mdDow  = s => `${mdText(s)} (${DOW[dowOf(s)]})`;
+/* 올해가 아니면 연도까지 붙인다 */
+const ymText = s => (s.slice(0,4) === todayStr().slice(0,4) ? '' : `${Number(s.slice(0,4))}년 `) + mdText(s);
 /* 오늘·어제는 말로 부른다 */
 function dayWord(s){
   const t = todayStr();
@@ -432,11 +460,12 @@ function dayWord(s){
   return mdText(s);
 }
 
-/* 26일부터 다음달 25일까지 — 시작월이 정산월 */
+/* 26일부터 다음달 25일까지. 기간이 '끝나는 달'이 정산월
+   예) 7월 26일 ~ 8월 25일 = 8월 */
 function cycleKeyOf(s){
   const [y,m,d] = s.split('-').map(Number);
-  if (d >= 26) return `${y}-${pad(m)}`;
-  return m === 1 ? `${y-1}-12` : `${y}-${pad(m-1)}`;
+  if (d >= 26) return m === 12 ? `${y+1}-01` : `${y}-${pad(m+1)}`;
+  return `${y}-${pad(m)}`;
 }
 function shiftKey(k, delta){
   let [y,m] = k.split('-').map(Number);
@@ -445,8 +474,9 @@ function shiftKey(k, delta){
 }
 function cycleDates(k){
   const [y,m] = k.split('-').map(Number);
-  const end = `${m===12?y+1:y}-${pad(m===12?1:m+1)}-25`;
-  const out = []; let cur = `${y}-${pad(m)}-26`;
+  const sy = m === 1 ? y-1 : y, sm = m === 1 ? 12 : m-1;
+  const end = `${y}-${pad(m)}-25`;
+  const out = []; let cur = `${sy}-${pad(sm)}-26`;
   while (cur <= end){ out.push(cur); cur = addDays(cur,1); }
   return out;
 }
@@ -455,15 +485,40 @@ function cycleRange(k){
   const ds = cycleDates(k);
   return `${mdText(ds[0])} ~ ${mdText(ds[ds.length-1])}`;
 }
-function summary(k){
-  const price = db.prices[k] || 0;
-  let count = 0; const rows = [];
+
+/* ── 단가: '그 날부터 계속' 이라는 뜻으로 저장한다 ──
+   db.rates = { '2026-07-26': 1500 }  →  7월 26일부터 다음 변경 전까지 1,500원
+   FIRST 는 '처음부터'. 첫 단가는 이 값으로 두어야, 나중에 과거 실적을 채워도
+   금액이 빠지지 않는다. */
+const FIRST = '1900-01-01';
+const rateFrom = k => k === FIRST ? '처음부터' : `${ymText(k)}부터`;
+function rateStart(d){                       // 그 날에 적용되는 단가의 시작일
+  let best = '';
+  for (const k in db.rates) if (k <= d && k > best) best = k;
+  return best || null;
+}
+const rateOn = d => { const s = rateStart(d); return s ? db.rates[s] : 0; };
+function ratesInCycle(k){                    // 이 정산 기간에 적용된 단가들
+  const map = new Map();
+  for (const d of cycleDates(k)){
+    const r = rateOn(d);
+    if (r) map.set(r, map.get(r) ?? d);
+  }
+  return map;
+}
+/* 금액은 날짜마다 그 날의 단가로 계산한다 (기간 중에 바뀌어도 맞게 나온다) */
+function summary(k, rates){
+  const R = rates || db.rates;
+  const rateAt = d => { let b=''; for (const x in R) if (x <= d && x > b) b = x; return b ? R[b] : 0; };
+  let count = 0, amount = 0; const rows = [];
   for (const d of cycleDates(k)){
     const v = db.daily[d];
     if (v === undefined) continue;
-    count += v; rows.push([d,v]);
+    const r = rateAt(d);
+    count += v; amount += v * r;
+    rows.push([d, v, r]);
   }
-  return { count, price, amount:count*price, rows };
+  return { count, amount, rows };
 }
 
 /* ── 화면 / 알림 ── */
@@ -489,13 +544,25 @@ function renderHome(){
 
   // 주인공은 늘 건수. 금액은 단가가 있을 때 그 아래에 붙는 파생값
   $('heroBig').innerHTML = `${fmt(s.count)}<em>건</em>`;
-  $('heroMoney').hidden = !s.price;
-  if (s.price) $('heroMoney').innerHTML = `${fmt(s.amount)}<em>원</em>`;
+  $('heroMoney').hidden = s.amount === 0;
+  if (s.amount) $('heroMoney').innerHTML = `${fmt(s.amount)}<em>원</em>`;
 
-  // 단가 줄 — 어느 달 단가인지 줄 안에서 밝힌다
-  $('priceScope').textContent = `${cycleTitle(cursor)}에 적용`;
-  $('priceValue').textContent = s.price ? `${fmt(s.price)}원` : '입력하기';
-  $('priceValue').style.color = s.price ? 'var(--t1)' : 'var(--blue)';
+  // 단가 줄 — 언제부터 적용 중인지를 보여준다 (달에 묶인 값이 아니다)
+  const inCycle = ratesInCycle(cursor);
+  const ds = cycleDates(cursor);
+  const refDay = today < ds[ds.length-1] ? today : ds[ds.length-1];
+  const nowRate = rateOn(refDay);
+  if (!nowRate && inCycle.size === 0){
+    $('priceValue').textContent = '입력하기';
+    $('priceScope').textContent = '넣으면 바꿀 때까지 계속 적용돼요';
+  } else {
+    // 값은 '지금 적용 중인 단가' 하나만. 기간 중에 바뀌었으면 그것만 덧붙인다
+    $('priceValue').textContent = `${fmt(nowRate)}원`;
+    const st = rateStart(refDay);
+    $('priceScope').textContent = (st ? rateFrom(st) : '')
+      + (inCycle.size > 1 ? ' · 기간 중 바뀜' : ' 적용 중');
+  }
+  $('priceValue').style.color = nowRate ? 'var(--t1)' : 'var(--blue)';
 
   $('listHead').textContent = s.rows.length ? `기록한 날 ${s.rows.length}일` : '기록';
   const list = $('list');
@@ -558,8 +625,8 @@ function renderEntry(){
   const ok = raw !== '' && isFinite(n) && n >= 0;
   $('ctaSave').disabled = !ok;
   $('ctaSave').textContent = isEdit ? '수정 저장하기' : '저장하기';
-  const price = db.prices[cycleKeyOf(d)] || 0;
-  $('eHelp').innerHTML = ok && price ? `이 날 <b>${fmt(Math.floor(n)*price)}원</b>` : '';
+  const rate = rateOn(d);
+  $('eHelp').innerHTML = ok && rate ? `이 날 <b>${fmt(Math.floor(n)*rate)}원</b>` : '';
 }
 function sizeNum(input, box){
   input.style.width = Math.max(1, (input.value||'').replace('-','').length) + 'ch';
@@ -619,39 +686,45 @@ function updateBulkSummary(){
   $('ctaBulk').textContent = n ? `${n}일 저장하기` : '저장하기';
 }
 
-/* ─────────── 단가 (달마다 따로) ─────────── */
-function lastPrice(k){                     // 이전 달 중 가장 최근에 넣은 단가
-  for (let i = 1; i <= 12; i++){
-    const p = shiftKey(k, -i);
-    if (db.prices[p]) return { key:p, val:db.prices[p] };
-  }
-  return null;
-}
+/* ─────────── 단가 (그 날부터 계속) ─────────── */
 function openPrice(){
-  $('price').value = db.prices[cursor] || '';
-  $('pMonth').textContent = cycleTitle(cursor);
-  $('pQS').textContent = `${cycleRange(cursor)} 기간에만 적용돼요`;
+  // 첫 단가는 '처음부터'(가진 기록 전부 + 나중에 채울 과거 기록까지)
+  // 두 번째부터는 '오늘부터' 바꾸는 것이 보통이다
+  rateDate = Object.keys(db.rates).length ? todayStr() : FIRST;
+  $('price').value = '';
   show('price'); renderPrice();
   setTimeout(() => $('price').focus(), 60);
 }
 function renderPrice(){
+  $('rateDateLabel').textContent = rateDate === FIRST ? '처음부터' : `${mdDow(rateDate)}부터`;
+  $('pQS').textContent = rateDate === FIRST
+    ? '모든 기록에 적용돼요. 나중에 바꾸면 그 날부터 새 단가예요'
+    : '이 날부터 바꿀 때까지 계속 적용돼요';
   sizeNum($('price'), $('pBox'));
-  const raw = $('price').value.trim(), n = Number(raw);
+  const raw = $('price').value.trim(), n = Math.floor(Number(raw));
   const ok = raw !== '' && isFinite(n) && n >= 0;
   $('ctaPrice').disabled = !ok;
-  const s = summary(cursor);
-  $('pHelp').innerHTML = ok && s.count
-    ? `${fmt(s.count)}건 × ${fmt(Math.floor(n))}원 = <b>${fmt(s.count*Math.floor(n))}원</b>` : '';
 
-  // 지난 달 단가를 그대로 가져오는 지름길 — 달마다 따로라는 걸 같이 알려준다
-  const prev = raw === '' ? lastPrice(cursor) : null;
-  $('btnCopyPrice').hidden = !prev;
-  if (prev){
-    $('btnCopyPrice').innerHTML = `${cycleTitle(prev.key)}과 같은 ${fmt(prev.val)}원으로 넣기`;
-    $('btnCopyPrice').onclick = () => {
-      $('price').value = prev.val;
-      renderPrice();
-    };
+  // 이 단가를 넣으면 지금 보고 있는 정산월 금액이 어떻게 되는지
+  if (ok){
+    const after = summary(cursor, { ...db.rates, [rateDate]: n });
+    $('pHelp').innerHTML = after.count
+      ? `${cycleTitle(cursor)} ${fmt(after.count)}건 → <b>${fmt(after.amount)}원</b>`
+      : '';
+  } else $('pHelp').innerHTML = '';
+
+  // 바뀐 단가 이력 — 언제부터 무엇이 적용됐는지 한눈에
+  const keys = Object.keys(db.rates).sort().reverse();
+  $('rateHistory').hidden = !keys.length;
+  const box = $('rateList');
+  box.innerHTML = '';
+  for (const k of keys){
+    const el = document.createElement('div');
+    el.className = 'row';
+    el.innerHTML = `<span class="l">${rateFrom(k)}</span>` +
+                   `<span class="r">${fmt(db.rates[k])}<small>원</small></span>` +
+                   `<button class="txtdel" data-k="${k}">삭제</button>`;
+    box.appendChild(el);
   }
 }
 
@@ -671,8 +744,20 @@ function renderSheet(){
   const box = $('sList');
   box.innerHTML = '';
 
-  if (sheetMode === 'date'){
-    $('sTitle').textContent = '날짜 선택';
+  if (sheetMode === 'date' || sheetMode === 'date-rate'){
+    const forRate = sheetMode === 'date-rate';
+    const selDate = forRate ? rateDate : editDate;
+    $('sTitle').textContent = forRate ? '언제부터 적용할까요?' : '날짜 선택';
+    if (forRate){
+      // 가진 기록 전체(앞으로 채울 과거 기록까지)에 적용하는 선택지
+      const b = document.createElement('button');
+      b.className = 'row' + (rateDate === FIRST ? ' sel' : '');
+      b.innerHTML = `<span class="l">처음부터</span>` +
+        `<span class="r">모든 기록에 적용</span>` +
+        `<span class="c">${rateDate === FIRST ? ico('check',18) : ''}</span>`;
+      b.onclick = () => { closeSheet(); rateDate = FIRST; renderPrice(); };
+      box.appendChild(b);
+    }
     // 오늘부터 60일 전까지, 정산월로 묶어서 보여준다
     let lastKey = null;
     for (let i = 0; i < 60; i++){
@@ -687,11 +772,16 @@ function renderSheet(){
       }
       const v = db.daily[d];
       const b = document.createElement('button');
-      b.className = 'row' + (d === editDate ? ' sel' : '');
+      b.className = 'row' + (d === selDate ? ' sel' : '');
       b.innerHTML = `<span class="l">${mdDow(d)}${d===today?'<span class="tag">오늘</span>':''}</span>` +
-        `<span class="r">${v === undefined ? '기록 없음' : fmt(v)+'건'}</span>` +
-        `<span class="c">${d === editDate ? ico('check',18) : ''}</span>`;
-      b.onclick = () => { closeSheet(); openEntry(d, editMode); };
+        `<span class="r">${forRate ? (rateOn(d) ? fmt(rateOn(d))+'원' : '단가 없음')
+                                   : (v === undefined ? '기록 없음' : fmt(v)+'건')}</span>` +
+        `<span class="c">${d === selDate ? ico('check',18) : ''}</span>`;
+      b.onclick = () => {
+        closeSheet();
+        if (forRate){ rateDate = d; renderPrice(); }
+        else openEntry(d, editMode);
+      };
       box.appendChild(b);
     }
   } else {
@@ -699,7 +789,7 @@ function renderSheet(){
     const sel = forBulk ? bulkKey : cursor;
     $('sTitle').textContent = '월 선택';
     // 기록이 있는 달 + 최근 6개 정산월
-    const keys = new Set(Object.keys(db.prices).concat(Object.keys(db.daily).map(cycleKeyOf)));
+    const keys = new Set(Object.keys(db.daily).map(cycleKeyOf));
     const now = cycleKeyOf(today);
     for (let i = 0; i < 6; i++) keys.add(shiftKey(now, -i));
     keys.add(sel);
@@ -709,7 +799,7 @@ function renderSheet(){
       b.className = 'row' + (k === sel ? ' sel' : '');
       b.innerHTML = `<span class="l">${cycleTitle(k)}${k===now?'<span class="tag">이번 달</span>':''}</span>` +
         `<span class="r">${s.count ? fmt(s.count)+'건' : '기록 없음'}` +
-        `${s.count && s.price ? `<small class="sub">${fmt(s.amount)}원</small>` : ''}</span>` +
+        `${s.amount ? `<small class="sub">${fmt(s.amount)}원</small>` : ''}</span>` +
         `<span class="c">${k === sel ? ico('check',18) : ''}</span>`;
       b.onclick = () => {
         closeSheet();
@@ -783,10 +873,20 @@ $('ctaBulk').onclick = () => {
 
 $('price').oninput = renderPrice;
 $('price').onkeydown = e => { if (e.key === 'Enter' && !$('ctaPrice').disabled) $('ctaPrice').click(); };
+$('rateDateField').onclick = () => openSheet('date-rate');
 $('ctaPrice').onclick = () => {
-  db.prices[cursor] = Math.max(0, Math.floor(Number($('price').value)));
+  const n = Math.max(0, Math.floor(Number($('price').value)));
+  db.rates[rateDate] = n;
   save(); renderHome(); show('home');
-  toast(`단가를 ${fmt(db.prices[cursor])}원으로 저장했어요`);
+  toast(`${rateFrom(rateDate)} ${fmt(n)}원으로 저장했어요`);
+};
+$('rateList').onclick = e => {
+  const k = e.target.dataset?.k;
+  if (!k) return;
+  if (!confirm(`'${rateFrom(k)} ${fmt(db.rates[k])}원' 을 지울까요?`)) return;
+  delete db.rates[k];
+  save(); renderPrice(); renderHome();
+  toast('단가를 지웠어요');
 };
 
 $('btnExport').onclick = () => {
@@ -802,9 +902,9 @@ $('file').onchange = async e => {
   const f = e.target.files[0]; if (!f) return;
   try{
     const o = JSON.parse(await f.text());
-    if (!o || typeof o !== 'object' || (!o.daily && !o.prices)) throw 0;
+    if (!o || typeof o !== 'object' || (!o.daily && !o.rates && !o.prices)) throw 0;
     if (!confirm('지금 있는 기록을 불러온 파일로 바꿔요. 계속할까요?')) return;
-    db = { daily:o.daily||{}, prices:o.prices||{} };
+    db = normalize(o);          // 옛 백업(달마다 단가)도 받아들인다
     save(); renderHome(); show('home');
     toast('백업을 불러왔어요');
   }catch(err){ alert('백업 파일이 아니에요.'); }
@@ -812,7 +912,7 @@ $('file').onchange = async e => {
 };
 $('btnClear').onclick = () => {
   if (!confirm('모든 기록을 지워요. 되돌릴 수 없어요. 계속할까요?')) return;
-  db = { daily:{}, prices:{} };
+  db = { daily:{}, rates:{} };
   save(); renderHome(); show('home');
   toast('전체 기록을 지웠어요');
 };
