@@ -243,6 +243,36 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
    폭이 화면의 절반으로 잘려 짧은 문장도 두 줄이 된다. left/right 를 함께 주고
    margin:auto 로 가운데 두면 화면 폭 전체를 기준으로 계산된다.
    아래 여백도 .cta 와 같은 안전영역 값을 더해야 저장 버튼을 덮지 않는다. */
+/* ───── 확인창 ─────
+   기기 기본 confirm/alert 은 모양을 정할 수 없고 앱 밖의 것처럼 보인다.
+   left:50% 대신 left/right + margin:auto 로 가운데를 잡는다(폭이 반으로 잘리지 않게). */
+.mdim{
+  position:fixed; inset:0; z-index:70; background:rgba(0,0,0,.45);
+  opacity:0; pointer-events:none; transition:opacity .18s;
+}
+.mdim.on{opacity:1; pointer-events:auto}
+.modal{
+  position:fixed; left:20px; right:20px; top:50%; margin:0 auto; z-index:71;
+  max-width:340px; background:var(--white); border-radius:20px; padding:26px 22px 18px;
+  text-align:center; opacity:0; pointer-events:none;
+  transform:translateY(-46%) scale(.96);
+  transition:opacity .18s, transform .18s cubic-bezier(.32,.72,0,1);
+}
+.modal.on{opacity:1; pointer-events:auto; transform:translateY(-50%) scale(1)}
+.modal b{display:block; font-size:19px; font-weight:700; line-height:1.45}
+.modal p{margin:10px 0 0; font-size:15px; font-weight:500; color:var(--t3); line-height:1.55}
+.modal .mbtns{display:flex; gap:8px; margin-top:22px}
+.modal .mbtns button{
+  flex:1; height:52px; border:0; border-radius:14px; font:inherit;
+  font-size:16px; font-weight:700; letter-spacing:-0.02em;
+}
+.modal .mno{background:var(--press); color:var(--t2)}
+.modal .mno:active{background:#DCE0E5}
+.modal .myes{background:var(--blue); color:#fff}
+.modal .myes:active{background:var(--blue-d)}
+.modal .myes.danger{background:var(--red)}
+.modal .myes.danger:active{background:#D22F25}
+
 /* ───── 숫자 키패드 ─────
    기기 기본 키보드는 크기·모양을 정할 수 없어 화면과 따로 노는 느낌이 난다.
    숫자만 넣는 화면이라 직접 만든 키패드를 항상 띄워 둔다(누를 필요 없음). */
@@ -432,6 +462,17 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
   <div class="slist" id="sList"></div>
 </div>
 
+<!-- 확인창 — 기기 기본 confirm/alert 대신 쓴다 -->
+<div class="mdim" id="mdim"></div>
+<div class="modal" id="modal" role="dialog" aria-modal="true">
+  <b id="mTitle">-</b>
+  <p id="mBody" hidden></p>
+  <div class="mbtns">
+    <button class="mno" id="mNo">취소</button>
+    <button class="myes" id="mYes">확인</button>
+  </div>
+</div>
+
 <!-- 숫자 키패드 — 기기 기본 키보드 대신 쓴다.
      입력칸은 inputmode="none" 이라 기본 키보드가 뜨지 않는다 -->
 <div class="pad" id="pad">
@@ -472,6 +513,7 @@ let curView = 'home';
 let sheetOn = false;
 let padTarget = null;   // 키패드가 값을 넣을 입력칸
 let padFresh = false;   // 아직 손대지 않은 값 — 첫 숫자를 누르면 대체된다
+let modalOn = false, askResolve = null, askResult = false;   // 확인창
 let afterBack = null;   // 뒤로가기가 끝난 뒤 이어서 할 일 (시트에서 값을 고른 경우)
 let toastTimer = null;
 
@@ -625,7 +667,7 @@ function padPress(k){
 }
 const depthNow = () => (history.state && history.state.depth) || 0;
 const snap = depth => ({ depth, view:curView, sheet: sheetOn ? sheetMode : null,
-                         editDate, editMode, bulkKey, rateDate });
+                         modal: modalOn, editDate, editMode, bulkKey, rateDate });
 const pushNav    = () => history.pushState(snap(depthNow()+1), '');
 const replaceNav = () => history.replaceState(snap(depthNow()), '');
 /* 저장을 마쳤으면 홈까지 한 번에 되돌린다 (뒤로가기로 입력 화면에 되돌아가지 않게) */
@@ -634,6 +676,31 @@ function goHome(){
   if (d > 0) history.go(-d);          // popstate 가 홈 상태를 되살린다
   else { show('home'); renderHome(); replaceNav(); }
 }
+/* ── 확인창 ──
+   기기 기본 confirm/alert 을 대신한다. 시스템 뒤로가기로 닫으면 '취소' 로 본다.
+   그래서 시트와 같은 방식으로 히스토리에 한 단계를 쌓는다. */
+function ask(opt){
+  $('mTitle').textContent = opt.title;
+  $('mBody').textContent = opt.body || '';
+  $('mBody').hidden = !opt.body;
+  $('mYes').textContent = opt.ok || '확인';
+  $('mYes').classList.toggle('danger', !!opt.danger);
+  $('mNo').hidden = !!opt.alone;
+  $('mNo').textContent = opt.cancel || '취소';
+  modalOn = true; askResult = false;
+  $('mdim').classList.add('on');
+  $('modal').classList.add('on');
+  pushNav();
+  return new Promise(r => { askResolve = r; });
+}
+const tell = (title, body) => ask({ title, body, alone:true });
+function closeAsk(v){ askResult = v; history.back(); }   // 실제로 닫는 것은 popstate
+function hideAsk(){
+  modalOn = false;
+  $('mdim').classList.remove('on');
+  $('modal').classList.remove('on');
+}
+
 function toast(msg){
   const el = $('toast');
   el.textContent = msg; el.classList.add('on');
@@ -943,12 +1010,28 @@ $('btnMore').onclick = () => { show('more'); pushNav(); };
 document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => history.back());
 $('dim').onclick = () => history.back();
 $('sClose').onclick = () => history.back();
-document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheetOn) history.back(); });
+document.addEventListener('keydown', e => {
+  if (modalOn){
+    if (e.key === 'Escape') closeAsk(false);
+    if (e.key === 'Enter')  closeAsk(true);
+    return;
+  }
+  if (e.key === 'Escape' && sheetOn) history.back();
+});
 
 /* 시스템 뒤로가기 — 히스토리에 담아둔 스냅샷으로 그 화면을 되살린다.
    홈(depth 0)에서 한 번 더 누르면 앱이 닫힌다 */
 window.addEventListener('popstate', e => {
   const s = e.state || { view:'home', sheet:null };
+
+  // 확인창이 열려 있었는데 돌아온 자리에 없으면 닫고 결과를 넘긴다(뒤로가기 = 취소)
+  let settle = null;
+  if (!s.modal && modalOn){
+    hideAsk();
+    const r = askResolve, v = askResult;
+    askResolve = null; askResult = false;
+    if (r) settle = () => r(v);
+  }
 
   if (s.sheet){
     sheetMode = s.sheet; sheetOn = true;
@@ -978,7 +1061,13 @@ window.addEventListener('popstate', e => {
   }
 
   if (afterBack){ const f = afterBack; afterBack = null; f(); }
+  // popstate 안에서 또 history 를 건드리면 꼬이므로 한 틱 뒤에 넘긴다
+  if (settle) setTimeout(settle, 0);
 });
+
+$('mYes').onclick = () => closeAsk(true);
+$('mNo').onclick  = () => closeAsk(false);
+$('mdim').onclick = () => closeAsk(false);
 
 /* 키패드: mousedown 에서 막아야 입력칸의 포커스(커서)가 유지된다 */
 $('pad').addEventListener('mousedown', e => e.preventDefault());
@@ -990,7 +1079,7 @@ $('pad').addEventListener('click', e => {
 /* PC 물리 키보드도 키패드와 같은 길로 처리한다.
    입력칸이 readonly 라서 직접 타이핑은 들어오지 않기 때문 */
 document.addEventListener('keydown', e => {
-  if (!padTarget || sheetOn || e.ctrlKey || e.altKey || e.metaKey) return;
+  if (!padTarget || sheetOn || modalOn || e.ctrlKey || e.altKey || e.metaKey) return;
   if (e.key >= '0' && e.key <= '9'){ padPress(e.key); e.preventDefault(); return; }
   if (e.key === 'Backspace'){ padPress('del'); e.preventDefault(); return; }
   if (e.key === 'Enter'){
@@ -1014,8 +1103,11 @@ $('ctaSave').onclick = () => {
   goHome();
   toast(`${dayWord(editDate)} ${fmt(n)}건 ${isEdit ? '수정했어요' : '저장했어요'}`);
 };
-$('btnDel').onclick = () => {
-  if (!confirm(`${mdText(editDate)} 기록을 지울까요?`)) return;
+$('btnDel').onclick = async () => {
+  const ok = await ask({ title:`${mdText(editDate)} 기록을 지울까요?`,
+                         body:`${fmt(db.daily[editDate])}건이 없어지고 그 달 합계에서 빠져요.`,
+                         ok:'삭제', danger:true });
+  if (!ok) return;
   delete db.daily[editDate];
   save(); goHome();
   toast(`${dayWord(editDate)} 기록을 지웠어요`);
@@ -1071,10 +1163,13 @@ $('ctaPrice').onclick = () => {
   save(); goHome();
   toast(`${rateFrom(rateDate)} ${fmt(n)}원으로 저장했어요`);
 };
-$('rateList').onclick = e => {
+$('rateList').onclick = async e => {
   const k = e.target.dataset?.k;
   if (!k) return;
-  if (!confirm(`'${rateFrom(k)} ${fmt(db.rates[k])}원' 을 지울까요?`)) return;
+  const ok = await ask({ title:'이 단가를 지울까요?',
+                         body:`${rateFrom(k)} ${fmt(db.rates[k])}원. 지우면 그 앞의 단가가 이어서 적용돼요.`,
+                         ok:'삭제', danger:true });
+  if (!ok) return;
   delete db.rates[k];
   save(); renderPrice(); renderHome();
   toast('단가를 지웠어요');
@@ -1090,19 +1185,29 @@ $('btnExport').onclick = () => {
 };
 $('btnImport').onclick = () => $('file').click();
 $('file').onchange = async e => {
-  const f = e.target.files[0]; if (!f) return;
-  try{
-    const o = JSON.parse(await f.text());
-    if (!o || typeof o !== 'object' || (!o.daily && !o.rates && !o.prices)) throw 0;
-    if (!confirm('지금 있는 기록을 불러온 파일로 바꿔요. 계속할까요?')) return;
-    db = normalize(o);          // 옛 백업(달마다 단가)도 받아들인다
-    save(); goHome();
-    toast('백업을 불러왔어요');
-  }catch(err){ alert('백업 파일이 아니에요.'); }
-  e.target.value = '';
+  const f = e.target.files[0];
+  e.target.value = '';        // 같은 파일을 다시 골라도 동작하도록 먼저 비운다
+  if (!f) return;
+  const 아님 = () => tell('백업 파일이 아니에요', '이 앱에서 저장한 파일인지 확인해 주세요.');
+  let o;
+  try { o = JSON.parse(await f.text()); } catch(err){ return 아님(); }
+  if (!o || typeof o !== 'object' || (!o.daily && !o.rates && !o.prices)) return 아님();
+
+  const days = Object.keys(o.daily || {}).length;
+  const ok = await ask({ title:'지금 있는 기록을 바꿀까요?',
+                         body:`불러온 파일의 기록 ${days}일로 덮어씁니다. 지금 기록은 없어져요.`,
+                         ok:'불러오기' });
+  if (!ok) return;
+  db = normalize(o);          // 옛 백업(달마다 단가)도 받아들인다
+  save(); goHome();
+  toast('백업을 불러왔어요');
 };
-$('btnClear').onclick = () => {
-  if (!confirm('모든 기록을 지워요. 되돌릴 수 없어요. 계속할까요?')) return;
+$('btnClear').onclick = async () => {
+  const days = Object.keys(db.daily).length;
+  const ok = await ask({ title:'모든 기록을 지울까요?',
+                         body:`기록 ${days}일과 단가가 전부 없어져요. 되돌릴 수 없으니 백업 파일이 있는지 먼저 확인하세요.`,
+                         ok:'전체 삭제', danger:true });
+  if (!ok) return;
   db = { daily:{}, rates:{} };
   save(); goHome();
   toast('전체 기록을 지웠어요');
