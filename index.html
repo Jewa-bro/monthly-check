@@ -29,14 +29,19 @@ body{
     'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',system-ui,sans-serif;
   color:var(--t1); font-size:17px; line-height:1.5; letter-spacing:-0.02em;
   -webkit-font-smoothing:antialiased;
+  /* 한글은 기본값이면 글자 아무 곳에서나 잘린다. 어절 단위로 넘긴다 */
+  word-break:keep-all; overflow-wrap:break-word;
 }
 .app{max-width:480px; margin:0 auto; min-height:100vh; padding:0 20px 132px; position:relative}
 button{font:inherit; letter-spacing:inherit; cursor:pointer}
 
-/* 화면 전환 */
+/* 화면 전환
+   주의: 여기서 transform 을 쓰면 안 된다. 조상에 transform 이 걸리는 동안
+   position:fixed 인 하단 버튼(.cta)의 기준이 뷰포트가 아니라 이 요소가 되어
+   화면을 넘길 때마다 버튼이 엉뚱한 자리에서 튀어 들어온다. 그래서 투명도만 쓴다. */
 .view{display:none}
-.view.on{display:block; animation:fade .22s ease-out}
-@keyframes fade{from{opacity:0; transform:translateY(6px)}to{opacity:1; transform:none}}
+.view.on{display:block; animation:fade .2s ease-out}
+@keyframes fade{from{opacity:0}to{opacity:1}}
 
 /* ───── 상단바 ─────
    위계 규칙
@@ -209,8 +214,11 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 .slist .row{padding:15px 4px}
 .slist .row .l{color:var(--t1); font-weight:600}
 .slist .row.sel .l, .slist .row.sel .r, .slist .row.sel .c{color:var(--blue)}
-.slist .row .r{color:var(--t3); font-weight:500; font-size:16px}
+.slist .row .r{color:var(--t3); font-weight:500; font-size:16px; text-align:right}
 .slist .row.sel .r{font-weight:700}
+/* 금액은 건수 아래로 — 홈과 같은 위계, 좁은 화면에서도 줄이 접히지 않는다 */
+.slist .row .r .sub{display:block; margin:-3px 0 0; font-size:14px; font-weight:500; color:var(--t3)}
+.slist .row.sel .r .sub{color:var(--blue)}
 .slist .row .c{width:18px; justify-content:flex-end; font-weight:700}
 .slist .gh{
   position:sticky; top:0; background:var(--white); z-index:1;
@@ -218,13 +226,21 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 }
 .slist .gh span{font-weight:500; color:var(--t4); margin-left:5px}
 
+/* left:50% + translateX(-50%) 로 가운데 두면, 이 요소가 레이아웃에서 쓸 수 있는
+   폭이 화면의 절반으로 잘려 짧은 문장도 두 줄이 된다. left/right 를 함께 주고
+   margin:auto 로 가운데 두면 화면 폭 전체를 기준으로 계산된다.
+   아래 여백도 .cta 와 같은 안전영역 값을 더해야 저장 버튼을 덮지 않는다. */
 .toast{
-  position:fixed; left:50%; bottom:96px; transform:translate(-50%,14px); z-index:60;
-  max-width:340px; padding:15px 22px; border-radius:14px;
-  background:rgba(25,31,40,.94); color:#fff; font-size:16px; font-weight:600;
+  position:fixed; left:16px; right:16px; margin:0 auto;
+  bottom:calc(104px + env(safe-area-inset-bottom)); z-index:60;
+  /* 100% 는 뷰포트 폭으로 해석되므로 좌우 여백을 직접 빼야 화면에 딱 붙지 않는다 */
+  width:max-content; max-width:min(360px, calc(100% - 32px));
+  padding:14px 20px; border-radius:14px;
+  background:rgba(25,31,40,.94); color:#fff; font-size:16px; font-weight:600; line-height:1.45;
+  transform:translateY(14px);
   opacity:0; transition:opacity .22s, transform .22s; pointer-events:none; text-align:center;
 }
-.toast.on{opacity:1; transform:translate(-50%,0)}
+.toast.on{opacity:1; transform:translateY(0)}
 .note{color:var(--t3); font-size:14px; font-weight:500; line-height:1.6; padding:4px 4px 20px}
 .note b{color:var(--t2)}
 </style>
@@ -692,7 +708,8 @@ function renderSheet(){
       const b = document.createElement('button');
       b.className = 'row' + (k === sel ? ' sel' : '');
       b.innerHTML = `<span class="l">${cycleTitle(k)}${k===now?'<span class="tag">이번 달</span>':''}</span>` +
-        `<span class="r">${s.count ? fmt(s.count)+'건' + (s.price ? ' · '+fmt(s.amount)+'원' : '') : '기록 없음'}</span>` +
+        `<span class="r">${s.count ? fmt(s.count)+'건' : '기록 없음'}` +
+        `${s.count && s.price ? `<small class="sub">${fmt(s.amount)}원</small>` : ''}</span>` +
         `<span class="c">${k === sel ? ico('check',18) : ''}</span>`;
       b.onclick = () => {
         closeSheet();
