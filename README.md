@@ -68,3 +68,19 @@
 | `manifest.webmanifest` | 앱 이름·아이콘·실행 방식 |
 | `sw.js` | 오프라인 동작용 서비스워커 |
 | `icon-*.png` | 앱 아이콘 |
+| `android/` | APK 프로젝트 (아래 참고 — **빌드 검증 안 됨**) |
+
+## android/ 폴더에 대해
+
+`index.html` 을 그대로 담아 실행하는 완전 오프라인 APK 프로젝트입니다. 코드는 다 있지만
+**한 번도 성공적으로 빌드된 적이 없습니다.** 쓰지 않는 폴더이니 무시하면 됩니다.
+
+- 개발 PC 에서 Gradle 이 `Unable to establish loopback connection` 으로 실패합니다.
+  일반 소켓은 되는데 `Selector.open()` / `Pipe.open()` 만 실패합니다. 금융·공공 사이트용
+  보안 프로그램(delfino, veraport)이 윈도우 Java NIO 의 루프백 자기검증을 깨뜨리는
+  알려진 증상입니다. Android Studio 로 열어도 같은 Gradle 을 쓰므로 동일하게 실패합니다.
+- GitHub Actions 로 옮겨 빌드하려 했지만, 결국 **APK 가 PWA 대비 얻는 것이 거의 없어서
+  중단했습니다.** PWA 도 홈화면 아이콘·전체화면·오프라인·시스템 뒤로가기가 다 되고,
+  고쳤을 때 재설치가 필요 없다는 점에서 오히려 낫습니다.
+- 다시 하려면: `android/ci-build.sh` 를 실행하는 워크플로 파일을 추가하고, 서명 키를
+  `ANDROID_KEYSTORE_BASE64` 등 Secret 으로 넣으면 됩니다.
