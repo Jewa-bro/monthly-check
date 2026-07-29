@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="color-scheme" content="light">
 <meta name="theme-color" content="#F2F4F6">
-<meta name="description" content="일별 배송 건수를 기록하고 정산월(26일~다음달 25일) 실적과 금액을 확인합니다.">
+<meta name="description" content="일별 배송 건수 기록과 정산월(26일~다음달 25일) 실적·금액 확인">
 <title>배송 실적</title>
 <link rel="manifest" href="./manifest.webmanifest">
 <link rel="icon" href="./favicon.png" sizes="64x64" type="image/png">
@@ -67,9 +67,19 @@ button{font:inherit; letter-spacing:inherit; cursor:pointer}
   margin-top:8px; font-variant-numeric:tabular-nums;
 }
 .hero .big em{font-style:normal; font-size:30px; font-weight:700; letter-spacing:-0.03em}
-.hero .sub{margin-top:12px; font-size:16px; color:var(--t3); font-weight:500}
-.hero .sub b{color:var(--t2); font-weight:600}
+/* 금액은 건수에서 파생된 값 — 항상 건수 아래, 한 단계 작게 */
+.hero .money{
+  margin-top:6px; font-size:26px; font-weight:700; letter-spacing:-0.035em;
+  font-variant-numeric:tabular-nums; color:var(--t1);
+}
+.hero .money em{font-style:normal; font-size:17px; font-weight:600; color:var(--t3); margin-left:1px}
 .linkbtn{border:0; background:none; padding:0; margin:0; font:inherit; color:var(--blue); font-weight:600}
+/* 화면 안의 보조 이동 (같은 과업의 다른 방식) */
+.altlink{
+  display:flex; align-items:center; justify-content:center; gap:4px; width:100%;
+  margin:26px 0 0; padding:12px; border:0; background:none;
+  color:var(--blue); font-size:16px; font-weight:600;
+}
 
 /* ───── 카드 / 목록 ───── */
 .card{background:var(--white); border-radius:20px; padding:8px 20px; margin-bottom:14px}
@@ -241,19 +251,21 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 
     <div class="hero">
       <div class="cap" id="heroCap">-</div>
-      <div class="big" id="heroBig">0<em>원</em></div>
-      <div class="sub" id="heroSub"></div>
+      <div class="big" id="heroBig">0<em>건</em></div>
+      <div class="money" id="heroMoney" hidden></div>
     </div>
+
+    <!-- 단가는 이 달에 딸린 값이라는 걸 줄 안에서 밝힌다 -->
+    <button class="field" id="btnPriceField">
+      <span class="fl">건당 단가<small id="priceScope">-</small></span>
+      <span class="fv" id="priceValue">-</span>
+      <span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span>
+    </button>
 
     <div class="card">
       <div class="head"><span id="listHead">기록</span></div>
       <div id="list"></div>
     </div>
-
-    <button class="field" id="btnBulk">
-      <span class="fl">여러 날 한꺼번에 입력<small>빠뜨린 날짜를 한 화면에서 채웁니다</small></span>
-      <span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span>
-    </button>
 
     <button class="linkbtn" id="btnMore" style="display:block; margin:14px auto 0; color:var(--t3); font-size:15px; padding:8px">백업 · 설정</button>
 
@@ -282,6 +294,8 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
     </label>
     <div class="helper" id="eHelp"></div>
 
+    <!-- 여러 날 입력도 '기록하기'의 한 방식이므로 이 화면 안에 둔다 -->
+    <button class="altlink" id="btnBulk">여러 날 한꺼번에 입력하기<svg width="18" height="18"><use href="#i-next"/></svg></button>
     <button class="danger" id="btnDel" hidden>이 날 기록 삭제</button>
     <div class="cta"><div><button class="btn" id="ctaSave" disabled>저장하기</button></div></div>
   </div>
@@ -300,8 +314,8 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
     </div>
     <div class="bsum"><span id="bRange">-</span><span>합계 <b id="bTotal">0</b>건</span></div>
     <div class="card" style="padding:14px 20px"><div id="bulkList"></div></div>
-    <div class="note">칸에 숫자를 넣고 아래 <b>저장하기</b>를 누르면 한 번에 저장됩니다.
-      비워두면 그 날은 기록하지 않습니다.</div>
+    <div class="note">칸에 숫자를 넣고 아래 <b>저장하기</b>를 누르면 한 번에 저장돼요.
+      비워두면 그 날은 기록하지 않아요.</div>
     <div class="cta"><div><button class="btn" id="ctaBulk" disabled>저장하기</button></div></div>
   </div>
 
@@ -311,12 +325,15 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
       <button class="back" data-back aria-label="뒤로"><svg width="24" height="24"><use href="#i-back"/></svg></button>
     </div>
     <div class="q">배송 1건에 얼마예요?</div>
+    <!-- 입력 화면의 날짜 줄과 같은 자리·같은 모양 = 이 값이 딸린 대상 -->
+    <div class="dateline"><span class="pill sm static" id="pMonth">-</span></div>
     <div class="qs" id="pQS"></div>
     <label class="bignum empty" id="pBox" for="price">
       <input id="price" type="number" min="0" step="10" inputmode="numeric" placeholder="0">
       <span class="unit">원</span>
     </label>
     <div class="helper" id="pHelp"></div>
+    <button class="altlink" id="btnCopyPrice" hidden></button>
     <div class="cta"><div><button class="btn" id="ctaPrice" disabled>저장하기</button></div></div>
   </div>
 
@@ -331,7 +348,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
       <button class="row" id="btnImport"><span class="l" style="color:var(--t1); font-weight:600">백업 불러오기</span><span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span></button>
       <input type="file" id="file" accept="application/json" hidden>
     </div>
-    <div class="note">실적은 이 기기 안에만 저장됩니다. 인터넷 기록을 지우거나 기기를 바꾸면 사라질 수 있으니,
+    <div class="note">실적은 이 기기 안에만 저장돼요. 인터넷 기록을 지우거나 기기를 바꾸면 사라질 수 있으니,
       한 달에 한 번 <b>백업 파일 저장</b>을 눌러 두세요.</div>
     <button class="danger" id="btnClear">전체 기록 삭제</button>
   </div>
@@ -454,16 +471,15 @@ function renderHome(){
   $('mName').textContent  = cycleTitle(cursor);
   $('heroCap').textContent = `${cycleRange(cursor)} 정산`;
 
-  if (s.price){
-    $('heroBig').innerHTML = `${fmt(s.amount)}<em>원</em>`;
-    $('heroSub').innerHTML = `<b>${fmt(s.count)}건</b> · 건당 ${fmt(s.price)}원 <button class="linkbtn" id="pEdit">변경</button>`;
-  } else {
-    $('heroBig').innerHTML = `${fmt(s.count)}<em>건</em>`;
-    $('heroSub').innerHTML = s.count
-      ? `<button class="linkbtn" id="pEdit">단가를 넣으면 금액이 보여요</button>`
-      : `<span style="color:var(--t4)">아직 기록이 없어요</span>`;
-  }
-  const pe = $('pEdit'); if (pe) pe.onclick = openPrice;
+  // 주인공은 늘 건수. 금액은 단가가 있을 때 그 아래에 붙는 파생값
+  $('heroBig').innerHTML = `${fmt(s.count)}<em>건</em>`;
+  $('heroMoney').hidden = !s.price;
+  if (s.price) $('heroMoney').innerHTML = `${fmt(s.amount)}<em>원</em>`;
+
+  // 단가 줄 — 어느 달 단가인지 줄 안에서 밝힌다
+  $('priceScope').textContent = `${cycleTitle(cursor)}에 적용`;
+  $('priceValue').textContent = s.price ? `${fmt(s.price)}원` : '입력하기';
+  $('priceValue').style.color = s.price ? 'var(--t1)' : 'var(--blue)';
 
   $('listHead').textContent = s.rows.length ? `기록한 날 ${s.rows.length}일` : '기록';
   const list = $('list');
@@ -516,9 +532,10 @@ function renderEntry(){
 
   // 맥락 줄: 다른 날 기록을 덮어쓰게 되는 경우에만 알려준다
   $('eQS').innerHTML = (!isEdit && known !== undefined)
-    ? `이미 <b>${fmt(known)}건</b>으로 기록되어 있어요. 저장하면 바뀝니다`
+    ? `이미 <b>${fmt(known)}건</b>으로 기록되어 있어요. 저장하면 바뀌어요`
     : '';
   $('btnDel').hidden = !(isEdit && known !== undefined);
+  $('btnBulk').hidden = isEdit;   // 여러 날 입력은 '기록하기'에서만
 
   sizeNum($('count'), $('numBox'));
   const raw = $('count').value.trim(), n = Number(raw);
@@ -535,7 +552,9 @@ function sizeNum(input, box){
 
 /* ─────────── 여러 날 한꺼번에 입력 ─────────── */
 function openBulk(){
-  bulkKey = cursor; bulkDraft = {};
+  // 기록하기에서 들어오므로, 지금 다루던 날짜가 속한 달로 시작한다
+  bulkKey = editDate ? cycleKeyOf(editDate) : cursor;
+  bulkDraft = {};
   show('bulk'); renderBulk();
 }
 function renderBulk(){
@@ -584,10 +603,18 @@ function updateBulkSummary(){
   $('ctaBulk').textContent = n ? `${n}일 저장하기` : '저장하기';
 }
 
-/* ─────────── 단가 ─────────── */
+/* ─────────── 단가 (달마다 따로) ─────────── */
+function lastPrice(k){                     // 이전 달 중 가장 최근에 넣은 단가
+  for (let i = 1; i <= 12; i++){
+    const p = shiftKey(k, -i);
+    if (db.prices[p]) return { key:p, val:db.prices[p] };
+  }
+  return null;
+}
 function openPrice(){
   $('price').value = db.prices[cursor] || '';
-  $('pQS').textContent = `${cycleTitle(cursor)} (${cycleRange(cursor)})`;
+  $('pMonth').textContent = cycleTitle(cursor);
+  $('pQS').textContent = `${cycleRange(cursor)} 기간에만 적용돼요`;
   show('price'); renderPrice();
   setTimeout(() => $('price').focus(), 60);
 }
@@ -599,6 +626,17 @@ function renderPrice(){
   const s = summary(cursor);
   $('pHelp').innerHTML = ok && s.count
     ? `${fmt(s.count)}건 × ${fmt(Math.floor(n))}원 = <b>${fmt(s.count*Math.floor(n))}원</b>` : '';
+
+  // 지난 달 단가를 그대로 가져오는 지름길 — 달마다 따로라는 걸 같이 알려준다
+  const prev = raw === '' ? lastPrice(cursor) : null;
+  $('btnCopyPrice').hidden = !prev;
+  if (prev){
+    $('btnCopyPrice').innerHTML = `${cycleTitle(prev.key)}과 같은 ${fmt(prev.val)}원으로 넣기`;
+    $('btnCopyPrice').onclick = () => {
+      $('price').value = prev.val;
+      renderPrice();
+    };
+  }
 }
 
 /* ─────────── 선택 시트 ─────────── */
@@ -673,8 +711,14 @@ $('ctaHome').onclick = () => openEntry(todayStr(), 'new');
 $('monthPill').onclick = () => openSheet('month-home');
 $('bulkPill').onclick = () => openSheet('month-bulk');
 $('btnBulk').onclick = openBulk;
+$('btnPriceField').onclick = openPrice;
 $('btnMore').onclick = () => show('more');
-document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => { renderHome(); show('home'); });
+/* 뒤로가기는 온 곳으로 돌아간다 */
+document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => {
+  const from = b.closest('.view').id;
+  if (from === 'v-bulk'){ renderEntry(); show('entry'); }
+  else { renderHome(); show('home'); }
+});
 $('dim').onclick = closeSheet;
 $('sClose').onclick = closeSheet;
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
