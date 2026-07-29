@@ -11,5 +11,5 @@ dependencyResolutionManagement {
         mavenCentral()
     }
 }
-rootProject.name = "배송실적"
+rootProject.name = "생수"
 include ':app'

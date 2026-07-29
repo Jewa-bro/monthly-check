@@ -1,7 +1,7 @@
 {
-  "name": "배송 실적",
-  "short_name": "배송실적",
-  "description": "일별 배송 건수 기록과 정산월(26일~다음달 25일) 실적·금액 확인",
+  "name": "생수",
+  "short_name": "생수",
+  "description": "생수 배송 건수 기록과 정산월(26일~다음달 25일) 실적·금액 확인",
   "lang": "ko",
   "dir": "ltr",
   "start_url": "./",
