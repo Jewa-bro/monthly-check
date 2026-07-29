@@ -2,3 +2,20 @@
 Thumbs.db
 desktop.ini
 *.json.bak
+
+# 안드로이드 빌드 산출물
+android/.gradle/
+android/build/
+android/app/build/
+android/local.properties
+
+# 앱 화면은 루트의 index.html 이 원본. 빌드할 때 여기로 복사되므로 담지 않는다
+android/app/src/main/assets/
+
+# 서명 키 — 절대 공개 저장소에 올리지 않는다.
+# 이 파일을 잃으면 같은 앱을 덮어쓰는 업데이트를 만들 수 없다 (따로 백업할 것)
+android/*.keystore
+android/keystore.properties
+
+# APK 는 릴리스로 첨부하고 저장소에는 담지 않는다
+*.apk

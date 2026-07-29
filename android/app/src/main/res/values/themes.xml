@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 상태바를 앱 배경색과 맞추고, 아이콘은 어둡게 -->
+    <style name="AppTheme" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="android:statusBarColor">#F2F4F6</item>
+        <item name="android:navigationBarColor">#F2F4F6</item>
+        <item name="android:windowBackground">#F2F4F6</item>
+        <item name="android:windowLightStatusBar">true</item>
+    </style>
+</resources>

@@ -1,0 +1,55 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'io.heumlabs.deliverycheck'
+    compileSdk 33
+    // 이 PC 에 설치된 것으로 고정. 비워두면 없는 버전을 내려받으려 하고,
+    // cmdline-tools 가 없어서 실패한다
+    buildToolsVersion '33.0.1'
+
+    defaultConfig {
+        applicationId "io.heumlabs.deliverycheck"
+        minSdk 24
+        targetSdk 33
+        // 업데이트를 덮어쓰려면 이 숫자가 매번 커져야 한다 (CI 가 빌드 번호를 넣는다)
+        versionCode (System.getenv("VERSION_CODE") ?: "1") as Integer
+        versionName (System.getenv("VERSION_NAME") ?: "1.0")
+    }
+
+    // 서명 정보는 저장소에 넣지 않는다. keystore.properties 가 있으면 그것으로 서명한다
+    def ksFile = rootProject.file('keystore.properties')
+    if (ksFile.exists()) {
+        def ks = new Properties()
+        ksFile.withInputStream { ks.load(it) }
+        signingConfigs {
+            release {
+                // file() 은 app 폴더 기준이라 키를 못 찾는다. android/ 기준으로 잡는다
+                storeFile rootProject.file(ks['storeFile'])
+                storePassword ks['storePassword']
+                keyAlias ks['keyAlias']
+                keyPassword ks['keyPassword']
+            }
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            if (ksFile.exists()) signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    // WebViewAssetLoader: APK 안의 파일을 https 주소처럼 제공한다.
+    // file:// 로 열면 localStorage 가 기기·웹뷰 버전에 따라 날아갈 수 있어서 반드시 필요하다
+    implementation 'androidx.webkit:webkit:1.8.0'
+    implementation 'androidx.appcompat:appcompat:1.6.1'
+}
