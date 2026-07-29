@@ -24,6 +24,8 @@
 }
 *{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
 html,body{margin:0; background:var(--bg)}
+/* 안드로이드에서 위로 쓸면 '당겨서 새로고침' 이 걸려 앱이 재시작된 것처럼 보인다 */
+html{overscroll-behavior-y:contain}
 body{
   font-family:'Pretendard Variable',Pretendard,-apple-system,BlinkMacSystemFont,
     'Apple SD Gothic Neo','Malgun Gothic','맑은 고딕',system-ui,sans-serif;
@@ -32,6 +34,11 @@ body{
   /* 한글은 기본값이면 글자 아무 곳에서나 잘린다. 어절 단위로 넘긴다 */
   word-break:keep-all; overflow-wrap:break-word;
 }
+/* 길게 눌러도 글자 선택 핸들이 뜨지 않게 — 입력칸은 당연히 예외 */
+button, .bar, .hero, .card .head, .row, .field, .brow .bd, .q, .qs, .note, .bsum, .slist .gh, .toast{
+  user-select:none; -webkit-user-select:none;
+}
+input{user-select:text; -webkit-user-select:text}
 .app{max-width:480px; margin:0 auto; min-height:100vh; padding:0 20px 132px; position:relative}
 button{font:inherit; letter-spacing:inherit; cursor:pointer}
 
@@ -215,7 +222,8 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
   display:flex; align-items:center; justify-content:center; border-radius:50%;
 }
 .sheet .x:active{background:var(--press)}
-.slist{overflow-y:auto; -webkit-overflow-scrolling:touch; margin:0 -4px}
+/* 시트 안을 끝까지 스크롤해도 뒤 화면이 따라 움직이지 않게 */
+.slist{overflow-y:auto; -webkit-overflow-scrolling:touch; overscroll-behavior:contain; margin:0 -4px}
 .slist .row{padding:15px 4px}
 .slist .row .l{color:var(--t1); font-weight:600}
 .slist .row.sel .l, .slist .row.sel .r, .slist .row.sel .c{color:var(--blue)}
@@ -414,6 +422,9 @@ let bulkKey;         // 일괄 입력 화면의 정산월
 let bulkDraft = {};  // 일괄 입력 중인 값 {날짜: '문자열'}
 let rateDate;        // 단가를 적용할 시작일
 let sheetMode;       // 'month-home' | 'month-bulk' | 'date' | 'date-rate'
+let curView = 'home';
+let sheetOn = false;
+let afterBack = null;   // 뒤로가기가 끝난 뒤 이어서 할 일 (시트에서 값을 고른 경우)
 let toastTimer = null;
 
 /* ── 저장소 ── */
@@ -521,10 +532,28 @@ function summary(k, rates){
   return { count, amount, rows };
 }
 
-/* ── 화면 / 알림 ── */
+/* ── 화면 이동 ──
+   안드로이드 시스템 뒤로가기는 브라우저 히스토리를 따라간다. 그래서 화면을
+   보여주고 감추는 것만으로는 안 되고, 화면마다 히스토리 항목을 쌓아야
+   뒤로가기가 홈까지 되돌아온 다음 앱을 닫는다.
+   히스토리 항목에는 그 화면을 되살릴 정보를 스냅샷으로 담는다(값의 차이가
+   아니라 상태 그대로). cursor(보고 있는 달)는 화면 이동이 아니라 필터이므로
+   스냅샷에 넣지 않는다. */
 function show(v){
+  curView = v;
   document.querySelectorAll('.view').forEach(e => e.classList.toggle('on', e.id === 'v'+'-'+v));
   window.scrollTo(0,0);
+}
+const depthNow = () => (history.state && history.state.depth) || 0;
+const snap = depth => ({ depth, view:curView, sheet: sheetOn ? sheetMode : null,
+                         editDate, editMode, bulkKey, rateDate });
+const pushNav    = () => history.pushState(snap(depthNow()+1), '');
+const replaceNav = () => history.replaceState(snap(depthNow()), '');
+/* 저장을 마쳤으면 홈까지 한 번에 되돌린다 (뒤로가기로 입력 화면에 되돌아가지 않게) */
+function goHome(){
+  const d = depthNow();
+  if (d > 0) history.go(-d);          // popstate 가 홈 상태를 되살린다
+  else { show('home'); renderHome(); replaceNav(); }
 }
 function toast(msg){
   const el = $('toast');
@@ -593,7 +622,7 @@ function renderHome(){
 }
 
 /* ─────────── 입력 / 수정 ─────────── */
-function openEntry(d, mode){
+function setEntry(d, mode){
   editDate = d; editMode = mode;
   const v = db.daily[d];
   $('count').value = v === undefined ? '' : v;
@@ -601,6 +630,7 @@ function openEntry(d, mode){
   renderEntry();
   setTimeout(() => $('count').focus(), 60);
 }
+function openEntry(d, mode){ setEntry(d, mode); pushNav(); }
 function renderEntry(){
   const d = editDate, known = db.daily[d];
   const isEdit = editMode === 'edit';
@@ -638,7 +668,7 @@ function openBulk(){
   // 기록하기에서 들어오므로, 지금 다루던 날짜가 속한 달로 시작한다
   bulkKey = editDate ? cycleKeyOf(editDate) : cursor;
   bulkDraft = {};
-  show('bulk'); renderBulk();
+  show('bulk'); renderBulk(); pushNav();
 }
 function renderBulk(){
   const today = todayStr();
@@ -692,7 +722,7 @@ function openPrice(){
   // 두 번째부터는 '오늘부터' 바꾸는 것이 보통이다
   rateDate = Object.keys(db.rates).length ? todayStr() : FIRST;
   $('price').value = '';
-  show('price'); renderPrice();
+  show('price'); renderPrice(); pushNav();
   setTimeout(() => $('price').focus(), 60);
 }
 function renderPrice(){
@@ -730,14 +760,23 @@ function renderPrice(){
 
 /* ─────────── 선택 시트 ─────────── */
 function openSheet(mode){
-  sheetMode = mode;
+  sheetMode = mode; sheetOn = true;
   renderSheet();
   $('dim').classList.add('on');
   $('sheet').classList.add('on');
+  pushNav();                     // 시트도 한 단계 — 뒤로가기로 닫힌다
 }
-function closeSheet(){
+function hideSheet(){            // 화면만 닫는다 (히스토리는 건드리지 않음)
+  sheetOn = false;
   $('dim').classList.remove('on');
   $('sheet').classList.remove('on');
+}
+/* 시트에서 값을 고른 경우: 시트 단계를 히스토리에서 걷어낸 뒤 이어서 처리한다.
+   그래야 값을 고르고 나서 뒤로가기 한 번에 앞 화면으로 나간다. */
+function closeSheetThen(fn){
+  hideSheet();
+  afterBack = fn;
+  history.back();
 }
 function renderSheet(){
   const today = todayStr();
@@ -755,7 +794,7 @@ function renderSheet(){
       b.innerHTML = `<span class="l">처음부터</span>` +
         `<span class="r">모든 기록에 적용</span>` +
         `<span class="c">${rateDate === FIRST ? ico('check',18) : ''}</span>`;
-      b.onclick = () => { closeSheet(); rateDate = FIRST; renderPrice(); };
+      b.onclick = () => closeSheetThen(() => { rateDate = FIRST; renderPrice(); replaceNav(); });
       box.appendChild(b);
     }
     // 오늘부터 60일 전까지, 정산월로 묶어서 보여준다
@@ -777,11 +816,11 @@ function renderSheet(){
         `<span class="r">${forRate ? (rateOn(d) ? fmt(rateOn(d))+'원' : '단가 없음')
                                    : (v === undefined ? '기록 없음' : fmt(v)+'건')}</span>` +
         `<span class="c">${d === selDate ? ico('check',18) : ''}</span>`;
-      b.onclick = () => {
-        closeSheet();
+      b.onclick = () => closeSheetThen(() => {
         if (forRate){ rateDate = d; renderPrice(); }
-        else openEntry(d, editMode);
-      };
+        else setEntry(d, editMode);
+        replaceNav();
+      });
       box.appendChild(b);
     }
   } else {
@@ -801,11 +840,11 @@ function renderSheet(){
         `<span class="r">${s.count ? fmt(s.count)+'건' : '기록 없음'}` +
         `${s.amount ? `<small class="sub">${fmt(s.amount)}원</small>` : ''}</span>` +
         `<span class="c">${k === sel ? ico('check',18) : ''}</span>`;
-      b.onclick = () => {
-        closeSheet();
+      b.onclick = () => closeSheetThen(() => {
         if (forBulk){ bulkKey = k; cursor = k; bulkDraft = {}; renderBulk(); renderHome(); }
         else { cursor = k; renderHome(); }
-      };
+        replaceNav();
+      });
       box.appendChild(b);
     }
   }
@@ -819,16 +858,48 @@ $('monthPill').onclick = () => openSheet('month-home');
 $('bulkPill').onclick = () => openSheet('month-bulk');
 $('btnBulk').onclick = openBulk;
 $('btnPriceField').onclick = openPrice;
-$('btnMore').onclick = () => show('more');
-/* 뒤로가기는 온 곳으로 돌아간다 */
-document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => {
-  const from = b.closest('.view').id;
-  if (from === 'v-bulk'){ renderEntry(); show('entry'); }
-  else { renderHome(); show('home'); }
+$('btnMore').onclick = () => { show('more'); pushNav(); };
+
+/* 화면 안의 뒤로가기 버튼도 시스템 뒤로가기와 똑같이 동작해야 한다 */
+document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => history.back());
+$('dim').onclick = () => history.back();
+$('sClose').onclick = () => history.back();
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && sheetOn) history.back(); });
+
+/* 시스템 뒤로가기 — 히스토리에 담아둔 스냅샷으로 그 화면을 되살린다.
+   홈(depth 0)에서 한 번 더 누르면 앱이 닫힌다 */
+window.addEventListener('popstate', e => {
+  const s = e.state || { view:'home', sheet:null };
+
+  if (s.sheet){
+    sheetMode = s.sheet; sheetOn = true;
+    renderSheet();
+    $('dim').classList.add('on'); $('sheet').classList.add('on');
+  } else hideSheet();
+
+  const v = s.view || 'home';
+  if (v === 'entry'){
+    // 입력 중이던 값은 살린다. 다른 날짜로 돌아가는 경우에만 다시 불러온다
+    if (editDate !== s.editDate || editMode !== s.editMode){
+      editDate = s.editDate; editMode = s.editMode;
+      const val = db.daily[editDate];
+      $('count').value = val === undefined ? '' : val;
+    }
+    show('entry'); renderEntry();
+  } else if (v === 'bulk'){
+    if (bulkKey !== s.bulkKey){ bulkKey = s.bulkKey; bulkDraft = {}; }
+    show('bulk'); renderBulk();
+  } else if (v === 'price'){
+    rateDate = s.rateDate;
+    show('price'); renderPrice();
+  } else if (v === 'more'){
+    show('more');
+  } else {
+    show('home'); renderHome();
+  }
+
+  if (afterBack){ const f = afterBack; afterBack = null; f(); }
 });
-$('dim').onclick = closeSheet;
-$('sClose').onclick = closeSheet;
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 
 $('count').oninput = renderEntry;
 $('count').onkeydown = e => { if (e.key === 'Enter' && !$('ctaSave').disabled) $('ctaSave').click(); };
@@ -840,13 +911,13 @@ $('ctaSave').onclick = () => {
   db.daily[editDate] = n;
   save();
   cursor = cycleKeyOf(editDate);
-  renderHome(); show('home');
+  goHome();
   toast(`${dayWord(editDate)} ${fmt(n)}건 ${isEdit ? '수정했어요' : '저장했어요'}`);
 };
 $('btnDel').onclick = () => {
   if (!confirm(`${mdText(editDate)} 기록을 지울까요?`)) return;
   delete db.daily[editDate];
-  save(); renderHome(); show('home');
+  save(); goHome();
   toast(`${dayWord(editDate)} 기록을 지웠어요`);
 };
 
@@ -867,7 +938,7 @@ $('ctaBulk').onclick = () => {
   }
   save();
   cursor = bulkKey; bulkDraft = {};
-  renderHome(); show('home');
+  goHome();
   toast(`${ds.length}일 저장했어요`);
 };
 
@@ -877,7 +948,7 @@ $('rateDateField').onclick = () => openSheet('date-rate');
 $('ctaPrice').onclick = () => {
   const n = Math.max(0, Math.floor(Number($('price').value)));
   db.rates[rateDate] = n;
-  save(); renderHome(); show('home');
+  save(); goHome();
   toast(`${rateFrom(rateDate)} ${fmt(n)}원으로 저장했어요`);
 };
 $('rateList').onclick = e => {
@@ -905,7 +976,7 @@ $('file').onchange = async e => {
     if (!o || typeof o !== 'object' || (!o.daily && !o.rates && !o.prices)) throw 0;
     if (!confirm('지금 있는 기록을 불러온 파일로 바꿔요. 계속할까요?')) return;
     db = normalize(o);          // 옛 백업(달마다 단가)도 받아들인다
-    save(); renderHome(); show('home');
+    save(); goHome();
     toast('백업을 불러왔어요');
   }catch(err){ alert('백업 파일이 아니에요.'); }
   e.target.value = '';
@@ -913,13 +984,15 @@ $('file').onchange = async e => {
 $('btnClear').onclick = () => {
   if (!confirm('모든 기록을 지워요. 되돌릴 수 없어요. 계속할까요?')) return;
   db = { daily:{}, rates:{} };
-  save(); renderHome(); show('home');
+  save(); goHome();
   toast('전체 기록을 지웠어요');
 };
 
 /* ─────────── 시작 ─────────── */
 cursor = cycleKeyOf(todayStr());
+show('home');
 renderHome();
+replaceNav();          // 홈을 히스토리의 뿌리로 삼는다 (여기서 뒤로가면 앱이 닫힌다)
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:'){
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
