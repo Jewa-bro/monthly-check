@@ -5,9 +5,9 @@ plugins {
 android {
     namespace 'io.heumlabs.deliverycheck'
     compileSdk 33
-    // 이 PC 에 설치된 것으로 고정. 비워두면 없는 버전을 내려받으려 하고,
-    // cmdline-tools 가 없어서 실패한다
-    buildToolsVersion '33.0.1'
+    // 비워두면 없는 버전을 내려받으려 하다 실패하므로 설치된 것으로 고정한다.
+    // CI 는 그 머신에 있는 버전을 찾아 BUILD_TOOLS 로 넘겨준다
+    buildToolsVersion (System.getenv("BUILD_TOOLS") ?: '33.0.1')
 
     defaultConfig {
         applicationId "io.heumlabs.deliverycheck"
