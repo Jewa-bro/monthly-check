@@ -31,74 +31,89 @@ body{
   -webkit-font-smoothing:antialiased;
 }
 .app{max-width:480px; margin:0 auto; min-height:100vh; padding:0 20px 132px; position:relative}
+button{font:inherit; letter-spacing:inherit; cursor:pointer}
 
 /* 화면 전환 */
 .view{display:none}
 .view.on{display:block; animation:fade .22s ease-out}
 @keyframes fade{from{opacity:0; transform:translateY(6px)}to{opacity:1; transform:none}}
 
-/* 상단바 */
-.bar{height:60px; display:flex; align-items:center; justify-content:space-between; margin:0 -8px}
-.icon{
-  width:44px; height:44px; border:0; background:none; padding:0; cursor:pointer;
-  color:var(--t2); font-size:22px; line-height:1; border-radius:50%;
+/* ───── 상단바 ─────
+   위계 규칙
+   · 뒤로가기(.back) : 화면 왼쪽 위에 단 하나. 진한 굵은 화살표. 다른 어디에도 안 쓴다.
+   · 값 바꾸기(.pill) : 글자 + 아래 캐럿(▾). 누르면 선택 시트가 올라온다.
+   · 목록 진입(.row › ) : 줄 오른쪽의 작고 연한 꺾쇠.                                */
+.bar{min-height:60px; display:flex; align-items:center; gap:4px; margin:0 -6px}
+.back{
+  width:44px; height:44px; flex:none; display:flex; align-items:center; justify-content:center;
+  border:0; background:none; padding:0; color:var(--t1); border-radius:50%;
 }
-.icon:active{background:var(--press)}
-.icon[disabled]{color:var(--t4); cursor:default}
-.bar .mid{text-align:center; flex:1}
-.bar .mid b{display:block; font-size:18px; font-weight:700}
-.bar .mid span{display:block; font-size:13px; color:var(--t3); font-weight:500; margin-top:1px}
-.bar .title{font-size:19px; font-weight:700; flex:1; text-align:center; padding-right:44px}
+.back:active{background:var(--press)}
+.bar .htitle{font-size:19px; font-weight:700; padding-left:2px}
+.pill{
+  display:inline-flex; align-items:center; gap:6px; height:44px; padding:0 8px 0 10px;
+  border:0; background:none; border-radius:12px; color:var(--t1);
+  font-size:22px; font-weight:800; letter-spacing:-0.035em;
+}
+.pill:active{background:var(--press)}
+.pill .car{color:var(--t3); display:flex}
+.pill.sm{font-size:17px; font-weight:700; height:40px}
 
-/* 히어로 — 화면에서 가장 중요한 숫자 */
-.hero{padding:20px 4px 36px}
-.hero .cap{font-size:16px; color:var(--t2); font-weight:600}
+/* ───── 히어로 ───── */
+.hero{padding:14px 4px 34px}
+.hero .cap{font-size:15px; color:var(--t3); font-weight:600}
 .hero .big{
   font-size:44px; font-weight:800; letter-spacing:-0.045em; line-height:1.16;
-  margin-top:6px; font-variant-numeric:tabular-nums;
+  margin-top:8px; font-variant-numeric:tabular-nums;
 }
 .hero .big em{font-style:normal; font-size:30px; font-weight:700; letter-spacing:-0.03em}
 .hero .sub{margin-top:12px; font-size:16px; color:var(--t3); font-weight:500}
 .hero .sub b{color:var(--t2); font-weight:600}
-.linkbtn{
-  border:0; background:none; padding:0; margin:0; font:inherit; cursor:pointer;
-  color:var(--blue); font-weight:600; letter-spacing:inherit;
-}
+.linkbtn{border:0; background:none; padding:0; margin:0; font:inherit; color:var(--blue); font-weight:600}
 
-/* 카드 */
+/* ───── 카드 / 목록 ───── */
 .card{background:var(--white); border-radius:20px; padding:8px 20px; margin-bottom:14px}
 .card .head{
   display:flex; align-items:center; justify-content:space-between;
   padding:14px 0 6px; font-size:15px; color:var(--t3); font-weight:600;
 }
-
-/* 목록 */
 .row{
   display:flex; align-items:center; gap:12px; width:100%; padding:17px 0;
-  border:0; border-top:1px solid var(--line); background:none; font:inherit;
-  letter-spacing:inherit; text-align:left; cursor:pointer; color:var(--t1);
+  border:0; border-top:1px solid var(--line); background:none;
+  text-align:left; color:var(--t1);
 }
 .card .head + .row{border-top:0}
+.row:first-child{border-top:0}
 .row:active{background:#FAFBFC}
 .row .l{flex:1; font-size:16px; color:var(--t2); font-weight:500}
 .row .l .tag{
   display:inline-block; margin-left:6px; padding:2px 7px; border-radius:6px;
   background:var(--blue-l); color:var(--blue); font-size:12px; font-weight:700; vertical-align:2px;
 }
+.row .l .muted{color:var(--t4); font-weight:500}
 .row .r{font-size:17px; font-weight:700; font-variant-numeric:tabular-nums}
 .row .r small{color:var(--t3); font-weight:500; margin-left:2px; font-size:15px}
-.row .c{color:var(--t4); font-size:17px; margin-left:-4px}
-.blank{padding:34px 0 38px; text-align:center; color:var(--t3); font-size:16px; font-weight:500}
+.row .c{color:var(--t4); display:flex; flex:none}
+.blank{padding:30px 0 34px; text-align:center; color:var(--t3); font-size:16px; font-weight:500}
 
-/* 입력 화면 */
+/* 줄 모양 진입 버튼 */
+.field{
+  display:flex; align-items:center; gap:10px; width:100%; height:64px;
+  padding:0 20px; border:0; border-radius:16px; background:var(--white); margin-bottom:14px;
+}
+.field:active{background:#F7F8F9}
+.field .fl{flex:1; text-align:left; font-size:17px; font-weight:600; color:var(--t1)}
+.field .fl small{display:block; font-size:14px; font-weight:500; color:var(--t3); margin-top:-2px}
+.field .fv{font-size:17px; font-weight:700; color:var(--t1)}
+.field .c{color:var(--t4); display:flex}
+
+/* ───── 큰 숫자 입력 ───── */
 .q{font-size:26px; font-weight:800; letter-spacing:-0.035em; line-height:1.35; margin:12px 0 4px}
-.q + .qs{font-size:16px; color:var(--t3); font-weight:500; margin-bottom:30px}
-/* 숫자 입력 — 영역 전체가 입력칸 */
+.qs{font-size:16px; color:var(--t3); font-weight:500}
 .bignum{
   display:flex; align-items:baseline; justify-content:center; gap:8px;
-  width:100%; min-height:132px; padding:26px 0 22px; margin:0;
-  border-bottom:2px solid var(--press); cursor:text;
-  transition:border-color .15s;
+  width:100%; min-height:132px; padding:26px 0 22px; margin:24px 0 0;
+  border-bottom:2px solid var(--press); cursor:text; transition:border-color .15s;
 }
 .bignum:focus-within{border-bottom-color:var(--blue)}
 .bignum input{
@@ -109,55 +124,39 @@ body{
 .bignum input::placeholder{color:var(--t4)}
 .bignum .unit{font-size:26px; font-weight:700; color:var(--t3)}
 .bignum.empty .unit{color:var(--t4)}
-.helper{text-align:center; color:var(--t3); font-size:15px; font-weight:500; min-height:22px; margin-top:16px}
-
-/* 값 선택 줄 (날짜) */
-.field{
-  display:flex; align-items:center; gap:10px; width:100%; height:64px;
-  margin-top:32px; padding:0 20px; border:0; border-radius:16px;
-  background:var(--white); font:inherit; letter-spacing:inherit; cursor:pointer;
-}
-.field:active{background:#F7F8F9}
-.field .fl{flex:1; text-align:left; font-size:16px; color:var(--t3); font-weight:500}
-.field .fv{font-size:17px; font-weight:700; color:var(--t1)}
-.field .c{color:var(--t4); font-size:17px}
-
-/* 바텀시트 */
-.dim{
-  position:fixed; inset:0; z-index:45; background:rgba(0,0,0,.45);
-  opacity:0; pointer-events:none; transition:opacity .24s;
-}
-.dim.on{opacity:1; pointer-events:auto}
-.sheet{
-  position:fixed; left:0; right:0; bottom:0; z-index:50;
-  max-width:480px; margin:0 auto; background:var(--white);
-  border-radius:22px 22px 0 0; padding:6px 20px calc(14px + env(safe-area-inset-bottom));
-  max-height:78vh; display:flex; flex-direction:column;
-  transform:translateY(101%); transition:transform .26s cubic-bezier(.32,.72,0,1);
-}
-.sheet.on{transform:none}
-.sheet .grip{width:40px; height:4px; border-radius:2px; background:var(--press); margin:8px auto 2px}
-.sheet .slist{overflow-y:auto; -webkit-overflow-scrolling:touch; margin:0 -4px}
-.sheet .row{padding:16px 4px}
-.sheet .row .l{color:var(--t1); font-weight:600}
-.sheet .row.sel .l{color:var(--blue)}
-.sheet .row .r{color:var(--t3); font-weight:500; font-size:16px}
-.sheet .row.sel .r{color:var(--blue); font-weight:700; font-size:17px}
-.sheet .row .c{width:16px; text-align:right; margin-left:0}
-.sheet .row.sel .c{color:var(--blue); font-weight:700}
-.sheet .slist .row:first-child{border-top:0}
-.sheet .bar{height:52px}
+.helper{text-align:center; color:var(--t3); font-size:15px; font-weight:500; min-height:22px; margin:16px 0 30px}
 .helper b{color:var(--blue); font-weight:600}
 .danger{
-  display:block; margin:36px auto 0; border:0; background:none; font:inherit;
-  color:var(--t3); font-size:15px; font-weight:500; text-decoration:underline;
-  cursor:pointer; padding:10px;
+  display:block; margin:30px auto 0; border:0; background:none; font:inherit;
+  color:var(--t3); font-size:15px; font-weight:500; text-decoration:underline; padding:10px;
 }
 input[type=number]{-moz-appearance:textfield}
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 
-/* 하단 고정 버튼 */
+/* ───── 일괄 입력 ───── */
+.bsum{
+  display:flex; align-items:baseline; justify-content:space-between;
+  padding:6px 4px 18px; color:var(--t3); font-size:15px; font-weight:600;
+}
+.bsum b{color:var(--t1); font-size:20px; font-weight:800; font-variant-numeric:tabular-nums}
+.brow{display:flex; align-items:center; gap:10px; padding:9px 0; border-top:1px solid var(--line)}
+.brow:first-child{border-top:0}
+.brow .bd{flex:1; font-size:16px; color:var(--t2); font-weight:500}
+.brow .bd .tag{
+  display:inline-block; margin-left:6px; padding:2px 7px; border-radius:6px;
+  background:var(--blue-l); color:var(--blue); font-size:12px; font-weight:700; vertical-align:2px;
+}
+.brow input{
+  width:92px; height:46px; padding:0 12px; border:1px solid #E5E8EB; border-radius:12px;
+  background:var(--white); color:var(--t1); font:inherit; font-size:17px; font-weight:700;
+  text-align:right; font-variant-numeric:tabular-nums; outline:0;
+}
+.brow input:focus{border-color:var(--blue); box-shadow:0 0 0 3px rgba(49,130,246,.15)}
+.brow.chg input{border-color:var(--blue); color:var(--blue)}
+.brow .bu{font-size:15px; color:var(--t3); font-weight:500; width:14px}
+
+/* ───── 하단 고정 버튼 ───── */
 .cta{
   position:fixed; left:0; right:0; bottom:0; z-index:20;
   padding:14px 20px calc(22px + env(safe-area-inset-bottom));
@@ -168,37 +167,75 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 .btn{
   display:block; width:100%; height:56px; border:0; border-radius:14px;
   background:var(--blue); color:#fff; font:inherit; font-size:17px; font-weight:700;
-  letter-spacing:-0.02em; cursor:pointer;
 }
 .btn:active{background:var(--blue-d)}
 .btn:disabled{background:var(--press); color:var(--t4); cursor:default}
 
-/* 토스트 */
+/* ───── 바텀시트 ───── */
+.dim{position:fixed; inset:0; z-index:45; background:rgba(0,0,0,.45); opacity:0; pointer-events:none; transition:opacity .24s}
+.dim.on{opacity:1; pointer-events:auto}
+.sheet{
+  position:fixed; left:0; right:0; bottom:0; z-index:50; max-width:480px; margin:0 auto;
+  background:var(--white); border-radius:22px 22px 0 0;
+  padding:6px 20px calc(10px + env(safe-area-inset-bottom));
+  max-height:80vh; display:flex; flex-direction:column;
+  transform:translateY(101%); transition:transform .26s cubic-bezier(.32,.72,0,1);
+}
+.sheet.on{transform:none}
+.sheet .grip{width:40px; height:4px; border-radius:2px; background:var(--press); margin:8px auto 4px}
+.sheet .shead{display:flex; align-items:center; padding:8px 0 6px}
+.sheet .shead b{flex:1; font-size:19px; font-weight:700}
+.sheet .x{
+  width:40px; height:40px; border:0; background:none; color:var(--t3);
+  display:flex; align-items:center; justify-content:center; border-radius:50%;
+}
+.sheet .x:active{background:var(--press)}
+.slist{overflow-y:auto; -webkit-overflow-scrolling:touch; margin:0 -4px}
+.slist .row{padding:15px 4px}
+.slist .row .l{color:var(--t1); font-weight:600}
+.slist .row.sel .l, .slist .row.sel .r, .slist .row.sel .c{color:var(--blue)}
+.slist .row .r{color:var(--t3); font-weight:500; font-size:16px}
+.slist .row.sel .r{font-weight:700}
+.slist .row .c{width:18px; justify-content:flex-end; font-weight:700}
+.slist .gh{
+  position:sticky; top:0; background:var(--white); z-index:1;
+  padding:14px 4px 6px; font-size:14px; font-weight:700; color:var(--t3);
+}
+.slist .gh span{font-weight:500; color:var(--t4); margin-left:5px}
+
 .toast{
-  position:fixed; left:50%; bottom:96px; transform:translate(-50%,14px); z-index:40;
-  max-width:400px; padding:15px 22px; border-radius:14px;
+  position:fixed; left:50%; bottom:96px; transform:translate(-50%,14px); z-index:60;
+  max-width:340px; padding:15px 22px; border-radius:14px;
   background:rgba(25,31,40,.94); color:#fff; font-size:16px; font-weight:600;
-  opacity:0; transition:opacity .22s, transform .22s; pointer-events:none; white-space:nowrap;
+  opacity:0; transition:opacity .22s, transform .22s; pointer-events:none; text-align:center;
 }
 .toast.on{opacity:1; transform:translate(-50%,0)}
-
 .note{color:var(--t3); font-size:14px; font-weight:500; line-height:1.6; padding:4px 4px 20px}
-.gap{height:10px}
+.note b{color:var(--t2)}
 </style>
 </head>
 <body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="i-back" viewBox="0 0 24 24"><path d="M15 4.5 7.5 12l7.5 7.5" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-caret" viewBox="0 0 24 24"><path d="M6 9.5l6 6 6-6" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-next" viewBox="0 0 24 24"><path d="M9.5 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+  <symbol id="i-close" viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/></symbol>
+  <symbol id="i-check" viewBox="0 0 24 24"><path d="M5 12.5l5 5 9-11" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+</svg>
+
 <div class="app">
 
   <!-- ─────────── 홈 ─────────── -->
   <div class="view on" id="v-home">
     <div class="bar">
-      <button class="icon" id="mPrev" aria-label="이전 달">‹</button>
-      <div class="mid"><b id="mName">-</b><span id="mRange">-</span></div>
-      <button class="icon" id="mNext" aria-label="다음 달">›</button>
+      <button class="pill" id="monthPill">
+        <span id="mName">-</span>
+        <span class="car"><svg width="18" height="18"><use href="#i-caret"/></svg></span>
+      </button>
     </div>
 
     <div class="hero">
-      <div class="cap" id="heroCap">이번 달 실적</div>
+      <div class="cap" id="heroCap">-</div>
       <div class="big" id="heroBig">0<em>원</em></div>
       <div class="sub" id="heroSub"></div>
     </div>
@@ -208,44 +245,66 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
       <div id="list"></div>
     </div>
 
-    <button class="linkbtn" id="btnMore" style="display:block; margin:18px auto 0; color:var(--t3); font-size:15px; padding:8px">지난 달 실적 · 백업</button>
+    <button class="field" id="btnBulk">
+      <span class="fl">여러 날 한꺼번에 입력<small>빠뜨린 날짜를 한 화면에서 채웁니다</small></span>
+      <span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span>
+    </button>
 
-    <div class="cta"><div><button class="btn" id="ctaHome">오늘 배송 입력하기</button></div></div>
+    <button class="linkbtn" id="btnMore" style="display:block; margin:14px auto 0; color:var(--t3); font-size:15px; padding:8px">백업 · 설정</button>
+
+    <div class="cta"><div><button class="btn" id="ctaHome">실적 기록하기</button></div></div>
   </div>
 
-  <!-- ─────────── 건수 입력 ─────────── -->
+  <!-- ─────────── 건수 입력 / 수정 ─────────── -->
   <div class="view" id="v-entry">
     <div class="bar">
-      <button class="icon" data-back aria-label="뒤로">‹</button>
-      <div class="title"></div>
+      <button class="back" data-back aria-label="뒤로"><svg width="24" height="24"><use href="#i-back"/></svg></button>
     </div>
-    <div class="q" id="eQ">몇 건 배송했어요?</div>
-    <div class="qs" id="eQS">숫자만 입력하면 돼요</div>
+    <div class="q" id="eQ">건수를 입력해주세요</div>
+    <div class="qs" id="eQS"></div>
 
     <label class="bignum empty" id="numBox" for="count">
-      <input id="count" type="number" min="0" step="1" inputmode="numeric" placeholder="0" value="">
+      <input id="count" type="number" min="0" step="1" inputmode="numeric" placeholder="0">
       <span class="unit">건</span>
     </label>
     <div class="helper" id="eHelp"></div>
 
+    <!-- 기록하기: 날짜를 고를 수 있음 / 수정: 그 날짜로 고정 -->
     <button class="field" id="dateField">
       <span class="fl">날짜</span>
       <span class="fv" id="dLabel">-</span>
-      <span class="c">›</span>
+      <span class="c" id="dCaret"><svg width="18" height="18"><use href="#i-caret"/></svg></span>
     </button>
 
     <button class="danger" id="btnDel" hidden>이 날 기록 삭제</button>
-
     <div class="cta"><div><button class="btn" id="ctaSave" disabled>저장하기</button></div></div>
   </div>
 
-  <!-- ─────────── 단가 입력 ─────────── -->
+  <!-- ─────────── 여러 날 한꺼번에 입력 ─────────── -->
+  <div class="view" id="v-bulk">
+    <div class="bar">
+      <button class="back" data-back aria-label="뒤로"><svg width="24" height="24"><use href="#i-back"/></svg></button>
+      <div class="htitle">여러 날 한꺼번에 입력</div>
+    </div>
+    <div class="bar" style="min-height:48px">
+      <button class="pill sm" id="bulkPill">
+        <span id="bName">-</span>
+        <span class="car"><svg width="16" height="16"><use href="#i-caret"/></svg></span>
+      </button>
+    </div>
+    <div class="bsum"><span id="bRange">-</span><span>합계 <b id="bTotal">0</b>건</span></div>
+    <div class="card" style="padding:14px 20px"><div id="bulkList"></div></div>
+    <div class="note">칸에 숫자를 넣고 아래 <b>저장하기</b>를 누르면 한 번에 저장됩니다.
+      비워두면 그 날은 기록하지 않습니다.</div>
+    <div class="cta"><div><button class="btn" id="ctaBulk" disabled>저장하기</button></div></div>
+  </div>
+
+  <!-- ─────────── 단가 ─────────── -->
   <div class="view" id="v-price">
     <div class="bar">
-      <button class="icon" data-back aria-label="뒤로">‹</button>
-      <div class="title"></div>
+      <button class="back" data-back aria-label="뒤로"><svg width="24" height="24"><use href="#i-back"/></svg></button>
     </div>
-    <div class="q" id="pQ">배송 1건에 얼마예요?</div>
+    <div class="q">배송 1건에 얼마예요?</div>
     <div class="qs" id="pQS"></div>
     <label class="bignum empty" id="pBox" for="price">
       <input id="price" type="number" min="0" step="10" inputmode="numeric" placeholder="0">
@@ -255,39 +314,33 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
     <div class="cta"><div><button class="btn" id="ctaPrice" disabled>저장하기</button></div></div>
   </div>
 
-  <!-- ─────────── 지난 달 · 백업 ─────────── -->
+  <!-- ─────────── 백업 · 설정 ─────────── -->
   <div class="view" id="v-more">
     <div class="bar">
-      <button class="icon" data-back aria-label="뒤로">‹</button>
-      <div class="title">지난 달 실적</div>
+      <button class="back" data-back aria-label="뒤로"><svg width="24" height="24"><use href="#i-back"/></svg></button>
+      <div class="htitle">백업 · 설정</div>
     </div>
-    <div class="card"><div id="months"></div></div>
-    <div class="note">달을 누르면 그 달로 이동해요.</div>
-
-    <div class="bar"><div class="title" style="text-align:left; padding:0">백업</div></div>
     <div class="card">
-      <button class="row" id="btnExport"><span class="l" style="color:var(--t1); font-weight:600">백업 파일 저장</span><span class="c">›</span></button>
-      <button class="row" id="btnImport"><span class="l" style="color:var(--t1); font-weight:600">백업 불러오기</span><span class="c">›</span></button>
+      <button class="row" id="btnExport"><span class="l" style="color:var(--t1); font-weight:600">백업 파일 저장</span><span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span></button>
+      <button class="row" id="btnImport"><span class="l" style="color:var(--t1); font-weight:600">백업 불러오기</span><span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span></button>
       <input type="file" id="file" accept="application/json" hidden>
     </div>
-    <div class="note">인터넷 기록을 지우거나 컴퓨터를 바꾸면 실적이 사라질 수 있어요.
+    <div class="note">실적은 이 기기 안에만 저장됩니다. 인터넷 기록을 지우거나 기기를 바꾸면 사라질 수 있으니,
       한 달에 한 번 <b>백업 파일 저장</b>을 눌러 두세요.</div>
-    <button class="danger" id="btnClear" style="margin-top:10px">전체 기록 삭제</button>
-    <div class="gap"></div>
+    <button class="danger" id="btnClear">전체 기록 삭제</button>
   </div>
 
 </div>
 
-<!-- 날짜 선택 바텀시트 -->
+<!-- 선택 시트 (월 선택 / 날짜 선택 공용) -->
 <div class="dim" id="dim"></div>
 <div class="sheet" id="sheet">
   <div class="grip"></div>
-  <div class="bar">
-    <button class="icon" id="sPrev" aria-label="이전 달">‹</button>
-    <div class="mid"><b>날짜 선택</b><span id="sRange">-</span></div>
-    <button class="icon" id="sNext" aria-label="다음 달">›</button>
+  <div class="shead">
+    <b id="sTitle">-</b>
+    <button class="x" id="sClose" aria-label="닫기"><svg width="22" height="22"><use href="#i-close"/></svg></button>
   </div>
-  <div class="slist" id="sheetList"></div>
+  <div class="slist" id="sList"></div>
 </div>
 
 <div class="toast" id="toast"></div>
@@ -298,11 +351,15 @@ const pad = n => String(n).padStart(2,'0');
 const fmt = n => (n||0).toLocaleString('ko-KR');
 const DOW = ['일','월','화','수','목','금','토'];
 const $ = id => document.getElementById(id);
+const ico = (id, s) => `<svg width="${s}" height="${s}"><use href="#i-${id}"/></svg>`;
 
 let db = load();
-let cursor;            // 보고 있는 정산월 'YYYY-MM' (26일 시작월)
-let editDate;          // 입력 화면에서 다루는 날짜
-let sheetKey;          // 날짜 선택 시트가 보여주는 정산월
+let cursor;          // 홈에서 보고 있는 정산월 'YYYY-MM' (26일 시작월)
+let editDate;        // 입력/수정 화면의 날짜
+let editMode;        // 'new' = 기록하기(날짜 변경 가능) / 'edit' = 목록에서 들어온 수정
+let bulkKey;         // 일괄 입력 화면의 정산월
+let bulkDraft = {};  // 일괄 입력 중인 값 {날짜: '문자열'}
+let sheetMode;       // 'month-home' | 'month-bulk' | 'date'
 let toastTimer = null;
 
 /* ── 저장소 ── */
@@ -327,6 +384,14 @@ function addDays(s, n){
 const dowOf = s => { const [y,m,d]=s.split('-').map(Number);
                      return new Date(Date.UTC(y,m-1,d)).getUTCDay(); };
 const mdText = s => `${Number(s.slice(5,7))}월 ${Number(s.slice(8,10))}일`;
+const mdDow  = s => `${mdText(s)} (${DOW[dowOf(s)]})`;
+/* 오늘·어제는 말로 부른다 */
+function dayWord(s){
+  const t = todayStr();
+  if (s === t) return '오늘';
+  if (s === addDays(t,-1)) return '어제';
+  return mdText(s);
+}
 
 /* 26일부터 다음달 25일까지 — 시작월이 정산월 */
 function cycleKeyOf(s){
@@ -346,7 +411,7 @@ function cycleDates(k){
   while (cur <= end){ out.push(cur); cur = addDays(cur,1); }
   return out;
 }
-const cycleName = k => `${Number(k.slice(5,7))}월 실적`;
+const cycleTitle = k => `${k.slice(0,4)}년 ${Number(k.slice(5,7))}월`;
 function cycleRange(k){
   const ds = cycleDates(k);
   return `${mdText(ds[0])} ~ ${mdText(ds[ds.length-1])}`;
@@ -362,9 +427,9 @@ function summary(k){
   return { count, price, amount:count*price, rows };
 }
 
-/* ── 화면 전환 ── */
+/* ── 화면 / 알림 ── */
 function show(v){
-  document.querySelectorAll('.view').forEach(e => e.classList.toggle('on', e.id === 'v-'+v));
+  document.querySelectorAll('.view').forEach(e => e.classList.toggle('on', e.id === 'v'+'-'+v));
   window.scrollTo(0,0);
 }
 function toast(msg){
@@ -374,57 +439,57 @@ function toast(msg){
   toastTimer = setTimeout(() => el.classList.remove('on'), 2200);
 }
 
-/* ── 홈 ── */
+/* ─────────── 홈 ─────────── */
 function renderHome(){
   const today = todayStr();
   const s = summary(cursor);
   const isThis = cursor === cycleKeyOf(today);
 
-  $('mName').textContent  = cycleName(cursor);
-  $('mRange').textContent = cycleRange(cursor);
-  $('mNext').disabled = cursor >= cycleKeyOf(today);
+  $('mName').textContent  = cycleTitle(cursor);
+  $('heroCap').textContent = `${cycleRange(cursor)} 정산`;
 
-  // 히어로: 단가가 있으면 '금액'이, 없으면 '건수'가 주인공
-  $('heroCap').textContent = isThis ? '이번 달 실적' : cycleName(cursor);
   if (s.price){
     $('heroBig').innerHTML = `${fmt(s.amount)}<em>원</em>`;
-    $('heroSub').innerHTML =
-      `<b>${fmt(s.count)}건</b> · 건당 ${fmt(s.price)}원 ` +
-      `<button class="linkbtn" id="pEdit">변경</button>`;
+    $('heroSub').innerHTML = `<b>${fmt(s.count)}건</b> · 건당 ${fmt(s.price)}원 <button class="linkbtn" id="pEdit">변경</button>`;
   } else {
     $('heroBig').innerHTML = `${fmt(s.count)}<em>건</em>`;
     $('heroSub').innerHTML = s.count
-      ? `<button class="linkbtn" id="pEdit">단가를 넣으면 금액이 보여요 ›</button>`
+      ? `<button class="linkbtn" id="pEdit">단가를 넣으면 금액이 보여요</button>`
       : `<span style="color:var(--t4)">아직 기록이 없어요</span>`;
   }
-  const pe = $('pEdit');
-  if (pe) pe.onclick = openPrice;
+  const pe = $('pEdit'); if (pe) pe.onclick = openPrice;
 
-  // 기록 목록
   $('listHead').textContent = s.rows.length ? `기록한 날 ${s.rows.length}일` : '기록';
   const list = $('list');
   list.innerHTML = '';
-  if (!s.rows.length){
-    list.innerHTML = `<div class="blank">아직 기록이 없어요</div>`;
-  } else {
-    for (const [d,v] of s.rows.slice().reverse()){
-      const b = document.createElement('button');
-      b.className = 'row';
-      b.innerHTML =
-        `<span class="l">${mdText(d)} (${DOW[dowOf(d)]})${d===today?'<span class="tag">오늘</span>':''}</span>` +
-        `<span class="r">${fmt(v)}<small>건</small></span><span class="c">›</span>`;
-      b.onclick = () => openEntry(d);
-      list.appendChild(b);
-    }
-  }
 
-  const has = db.daily[today] !== undefined;
-  $('ctaHome').textContent = has ? '오늘 실적 고치기' : '오늘 배송 입력하기';
+  // 이번 달을 보고 있는데 오늘이 비어 있으면 맨 위에 알려준다
+  if (isThis && db.daily[today] === undefined){
+    const b = document.createElement('button');
+    b.className = 'row';
+    b.innerHTML = `<span class="l">${mdDow(today)}<span class="tag">오늘</span></span>` +
+                  `<span class="r" style="color:var(--t4); font-weight:500; font-size:16px">기록 없음</span>` +
+                  `<span class="c">${ico('next',20)}</span>`;
+    b.onclick = () => openEntry(today, 'new');
+    list.appendChild(b);
+  }
+  if (!s.rows.length && !(isThis && db.daily[today] === undefined)){
+    list.innerHTML = `<div class="blank">아직 기록이 없어요</div>`;
+  }
+  for (const [d,v] of s.rows.slice().reverse()){
+    const b = document.createElement('button');
+    b.className = 'row';
+    b.innerHTML = `<span class="l">${mdDow(d)}${d===today?'<span class="tag">오늘</span>':''}</span>` +
+                  `<span class="r">${fmt(v)}<small>건</small></span>` +
+                  `<span class="c">${ico('next',20)}</span>`;
+    b.onclick = () => openEntry(d, 'edit');   // 수정은 이 목록에서만 들어온다
+    list.appendChild(b);
+  }
 }
 
-/* ── 건수 입력 ── */
-function openEntry(d){
-  editDate = d;
+/* ─────────── 입력 / 수정 ─────────── */
+function openEntry(d, mode){
+  editDate = d; editMode = mode;
   const v = db.daily[d];
   $('count').value = v === undefined ? '' : v;
   show('entry');
@@ -432,40 +497,96 @@ function openEntry(d){
   setTimeout(() => $('count').focus(), 60);
 }
 function renderEntry(){
-  const today = todayStr();
-  const d = editDate;
-  const known = db.daily[d];
-  $('dLabel').textContent = `${mdText(d)} (${DOW[dowOf(d)]})` + (d === today ? ' · 오늘' : '');
-  $('eQ').textContent = d === today ? '오늘 몇 건 배송했어요?' : `${mdText(d)}, 몇 건 배송했어요?`;
-  $('eQS').textContent = known !== undefined ? `${fmt(known)}건으로 기록되어 있어요` : '숫자만 입력하면 돼요';
-  $('btnDel').hidden = known === undefined;
-  sizeNum($('count'), $('numBox'));
+  const d = editDate, known = db.daily[d];
+  const isEdit = editMode === 'edit';
 
-  const raw = $('count').value.trim();
-  const n = Number(raw);
+  $('eQ').textContent = isEdit ? `${dayWord(d)} 실적 수정` : `${dayWord(d)} 건수를 입력해주세요`;
+  $('eQS').textContent = known !== undefined
+    ? `지금 ${fmt(known)}건으로 기록되어 있어요`
+    : (isEdit ? '' : '숫자만 넣으면 됩니다');
+
+  // 수정은 그 날짜로 고정, 기록하기는 날짜를 고를 수 있다
+  $('dLabel').textContent = mdDow(d) + (d === todayStr() ? ' · 오늘' : '');
+  $('dCaret').style.display = isEdit ? 'none' : 'flex';
+  $('dateField').disabled = isEdit;
+  $('dateField').style.background = isEdit ? 'transparent' : 'var(--white)';
+  $('dateField').style.cursor = isEdit ? 'default' : 'pointer';
+  $('btnDel').hidden = !(isEdit && known !== undefined);
+
+  sizeNum($('count'), $('numBox'));
+  const raw = $('count').value.trim(), n = Number(raw);
   const ok = raw !== '' && isFinite(n) && n >= 0;
   $('ctaSave').disabled = !ok;
+  $('ctaSave').textContent = isEdit ? '수정 저장하기' : '저장하기';
   const price = db.prices[cycleKeyOf(d)] || 0;
   $('eHelp').innerHTML = ok && price ? `이 날 <b>${fmt(Math.floor(n)*price)}원</b>` : '';
 }
 function sizeNum(input, box){
-  const len = (input.value || '').replace('-','').length;
-  input.style.width = Math.max(1, len) + 'ch';
+  input.style.width = Math.max(1, (input.value||'').replace('-','').length) + 'ch';
   box.classList.toggle('empty', !input.value);
 }
 
-/* ── 단가 입력 ── */
+/* ─────────── 여러 날 한꺼번에 입력 ─────────── */
+function openBulk(){
+  bulkKey = cursor; bulkDraft = {};
+  show('bulk'); renderBulk();
+}
+function renderBulk(){
+  const today = todayStr();
+  const days = cycleDates(bulkKey).filter(d => d <= today).reverse();
+  $('bName').textContent = cycleTitle(bulkKey);
+  $('bRange').textContent = cycleRange(bulkKey);
+
+  const box = $('bulkList');
+  box.innerHTML = '';
+  if (!days.length){
+    box.innerHTML = `<div class="blank">아직 시작하지 않은 달이에요</div>`;
+  }
+  for (const d of days){
+    const cur = bulkDraft[d] !== undefined ? bulkDraft[d]
+              : (db.daily[d] === undefined ? '' : String(db.daily[d]));
+    const el = document.createElement('div');
+    el.className = 'brow' + (isChanged(d) ? ' chg' : '');
+    el.innerHTML = `<span class="bd">${mdDow(d)}${d===today?'<span class="tag">오늘</span>':''}</span>` +
+      `<input type="number" min="0" step="1" inputmode="numeric" placeholder="-" data-d="${d}" value="${cur}">` +
+      `<span class="bu">건</span>`;
+    box.appendChild(el);
+  }
+  updateBulkSummary();
+}
+function storedStr(d){ return db.daily[d] === undefined ? '' : String(db.daily[d]); }
+function isChanged(d){
+  if (bulkDraft[d] === undefined) return false;
+  const a = bulkDraft[d].trim(), b = storedStr(d);
+  if (a === '' && b === '') return false;
+  return a === '' ? true : String(Math.max(0, Math.floor(Number(a)))) !== b;
+}
+function changedDates(){ return Object.keys(bulkDraft).filter(isChanged); }
+function updateBulkSummary(){
+  // 합계는 저장 전 입력값을 반영해서 보여준다
+  let total = 0;
+  for (const d of cycleDates(bulkKey)){
+    const raw = bulkDraft[d] !== undefined ? bulkDraft[d].trim() : storedStr(d);
+    if (raw === '') continue;
+    const n = Math.floor(Number(raw));
+    if (isFinite(n)) total += Math.max(0, n);
+  }
+  $('bTotal').textContent = fmt(total);
+  const n = changedDates().length;
+  $('ctaBulk').disabled = n === 0;
+  $('ctaBulk').textContent = n ? `${n}일 저장하기` : '저장하기';
+}
+
+/* ─────────── 단가 ─────────── */
 function openPrice(){
   $('price').value = db.prices[cursor] || '';
-  $('pQS').textContent = `${cycleName(cursor)} (${cycleRange(cursor)})`;
-  show('price');
-  renderPrice();
+  $('pQS').textContent = `${cycleTitle(cursor)} (${cycleRange(cursor)})`;
+  show('price'); renderPrice();
   setTimeout(() => $('price').focus(), 60);
 }
 function renderPrice(){
   sizeNum($('price'), $('pBox'));
-  const raw = $('price').value.trim();
-  const n = Number(raw);
+  const raw = $('price').value.trim(), n = Number(raw);
   const ok = raw !== '' && isFinite(n) && n >= 0;
   $('ctaPrice').disabled = !ok;
   const s = summary(cursor);
@@ -473,9 +594,9 @@ function renderPrice(){
     ? `${fmt(s.count)}건 × ${fmt(Math.floor(n))}원 = <b>${fmt(s.count*Math.floor(n))}원</b>` : '';
 }
 
-/* ── 날짜 선택 시트 ── */
-function openSheet(){
-  sheetKey = cycleKeyOf(editDate);
+/* ─────────── 선택 시트 ─────────── */
+function openSheet(mode){
+  sheetMode = mode;
   renderSheet();
   $('dim').classList.add('on');
   $('sheet').classList.add('on');
@@ -486,86 +607,117 @@ function closeSheet(){
 }
 function renderSheet(){
   const today = todayStr();
-  $('sRange').textContent = cycleRange(sheetKey);
-  $('sNext').disabled = sheetKey >= cycleKeyOf(today);
-  const box = $('sheetList');
+  const box = $('sList');
   box.innerHTML = '';
-  const days = cycleDates(sheetKey).filter(d => d <= today).reverse();
-  if (!days.length){
-    box.innerHTML = `<div class="blank">아직 오지 않은 날이에요</div>`;
-    return;
+
+  if (sheetMode === 'date'){
+    $('sTitle').textContent = '날짜 선택';
+    // 오늘부터 60일 전까지, 정산월로 묶어서 보여준다
+    let lastKey = null;
+    for (let i = 0; i < 60; i++){
+      const d = addDays(today, -i);
+      const k = cycleKeyOf(d);
+      if (k !== lastKey){
+        lastKey = k;
+        const h = document.createElement('div');
+        h.className = 'gh';
+        h.innerHTML = `${cycleTitle(k)} <span>${cycleRange(k)} 정산</span>`;
+        box.appendChild(h);
+      }
+      const v = db.daily[d];
+      const b = document.createElement('button');
+      b.className = 'row' + (d === editDate ? ' sel' : '');
+      b.innerHTML = `<span class="l">${mdDow(d)}${d===today?'<span class="tag">오늘</span>':''}</span>` +
+        `<span class="r">${v === undefined ? '기록 없음' : fmt(v)+'건'}</span>` +
+        `<span class="c">${d === editDate ? ico('check',18) : ''}</span>`;
+      b.onclick = () => { closeSheet(); openEntry(d, editMode); };
+      box.appendChild(b);
+    }
+  } else {
+    const forBulk = sheetMode === 'month-bulk';
+    const sel = forBulk ? bulkKey : cursor;
+    $('sTitle').textContent = '월 선택';
+    // 기록이 있는 달 + 최근 6개 정산월
+    const keys = new Set(Object.keys(db.prices).concat(Object.keys(db.daily).map(cycleKeyOf)));
+    const now = cycleKeyOf(today);
+    for (let i = 0; i < 6; i++) keys.add(shiftKey(now, -i));
+    keys.add(sel);
+    for (const k of [...keys].sort().reverse()){
+      const s = summary(k);
+      const b = document.createElement('button');
+      b.className = 'row' + (k === sel ? ' sel' : '');
+      b.innerHTML = `<span class="l">${cycleTitle(k)}${k===now?'<span class="tag">이번 달</span>':''}</span>` +
+        `<span class="r">${s.count ? fmt(s.count)+'건' + (s.price ? ' · '+fmt(s.amount)+'원' : '') : '기록 없음'}</span>` +
+        `<span class="c">${k === sel ? ico('check',18) : ''}</span>`;
+      b.onclick = () => {
+        closeSheet();
+        if (forBulk){ bulkKey = k; cursor = k; bulkDraft = {}; renderBulk(); renderHome(); }
+        else { cursor = k; renderHome(); }
+      };
+      box.appendChild(b);
+    }
   }
-  for (const d of days){
-    const v = db.daily[d];
-    const b = document.createElement('button');
-    b.className = 'row' + (d === editDate ? ' sel' : '');
-    b.innerHTML =
-      `<span class="l">${mdText(d)} (${DOW[dowOf(d)]})${d===today?'<span class="tag">오늘</span>':''}</span>` +
-      `<span class="r">${v === undefined ? '기록 없음' : fmt(v)+'건'}</span>` +
-      `<span class="c">${d === editDate ? '✓' : ''}</span>`;
-    b.onclick = () => { closeSheet(); openEntry(d); };
-    box.appendChild(b);
-  }
-  // 선택된 날짜가 보이도록
-  const sel = box.querySelector('.sel');
-  if (sel) box.scrollTop = Math.max(0, sel.offsetTop - 80);
+  const s = box.querySelector('.sel');
+  if (s) box.scrollTop = Math.max(0, s.offsetTop - 90);
 }
 
-/* ── 지난 달 ── */
-function renderMore(){
-  const keys = new Set(Object.keys(db.prices).concat(Object.keys(db.daily).map(cycleKeyOf)));
-  keys.add(cursor);
-  const box = $('months');
-  box.innerHTML = '';
-  for (const k of [...keys].sort().reverse()){
-    const s = summary(k);
-    const b = document.createElement('button');
-    b.className = 'row';
-    b.innerHTML =
-      `<span class="l">${k.slice(0,4)}년 ${Number(k.slice(5,7))}월<br><span style="font-size:14px;color:var(--t3)">${fmt(s.count)}건</span></span>` +
-      `<span class="r">${s.price ? fmt(s.amount)+'<small>원</small>' : '<small>단가 없음</small>'}</span><span class="c">›</span>`;
-    b.onclick = () => { cursor = k; renderHome(); show('home'); };
-    box.appendChild(b);
-  }
-}
-
-/* ── 이벤트 ── */
-$('ctaHome').onclick = () => openEntry(todayStr());
-$('mPrev').onclick = () => { cursor = shiftKey(cursor,-1); renderHome(); };
-$('mNext').onclick = () => { cursor = shiftKey(cursor, 1); renderHome(); };
-$('btnMore').onclick = () => { renderMore(); show('more'); };
+/* ─────────── 이벤트 ─────────── */
+$('ctaHome').onclick = () => openEntry(todayStr(), 'new');
+$('monthPill').onclick = () => openSheet('month-home');
+$('bulkPill').onclick = () => openSheet('month-bulk');
+$('btnBulk').onclick = openBulk;
+$('btnMore').onclick = () => show('more');
 document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => { renderHome(); show('home'); });
+$('dim').onclick = closeSheet;
+$('sClose').onclick = closeSheet;
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
 
 $('count').oninput = renderEntry;
 $('count').onkeydown = e => { if (e.key === 'Enter' && !$('ctaSave').disabled) $('ctaSave').click(); };
-$('dateField').onclick = openSheet;
-$('dim').onclick = closeSheet;
-$('sPrev').onclick = () => { sheetKey = shiftKey(sheetKey,-1); renderSheet(); };
-$('sNext').onclick = () => { sheetKey = shiftKey(sheetKey, 1); renderSheet(); };
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); });
+$('dateField').onclick = () => { if (editMode !== 'edit') openSheet('date'); };
 
 $('ctaSave').onclick = () => {
   const n = Math.max(0, Math.floor(Number($('count').value)));
+  const isEdit = editMode === 'edit';
   db.daily[editDate] = n;
   save();
   cursor = cycleKeyOf(editDate);
   renderHome(); show('home');
-  toast(`${mdText(editDate)} ${fmt(n)}건 저장했어요`);
+  toast(`${dayWord(editDate)} ${fmt(n)}건 ${isEdit ? '수정했어요' : '저장했어요'}`);
 };
 $('btnDel').onclick = () => {
   if (!confirm(`${mdText(editDate)} 기록을 지울까요?`)) return;
   delete db.daily[editDate];
+  save(); renderHome(); show('home');
+  toast(`${dayWord(editDate)} 기록을 지웠어요`);
+};
+
+$('bulkList').addEventListener('input', e => {
+  const d = e.target.dataset?.d;
+  if (!d) return;
+  bulkDraft[d] = e.target.value;
+  e.target.closest('.brow').classList.toggle('chg', isChanged(d));
+  updateBulkSummary();
+});
+$('ctaBulk').onclick = () => {
+  const ds = changedDates();
+  if (!ds.length) return;
+  for (const d of ds){
+    const raw = bulkDraft[d].trim();
+    if (raw === '') delete db.daily[d];
+    else db.daily[d] = Math.max(0, Math.floor(Number(raw)));
+  }
   save();
+  cursor = bulkKey; bulkDraft = {};
   renderHome(); show('home');
-  toast(`${mdText(editDate)} 기록을 지웠어요`);
+  toast(`${ds.length}일 저장했어요`);
 };
 
 $('price').oninput = renderPrice;
 $('price').onkeydown = e => { if (e.key === 'Enter' && !$('ctaPrice').disabled) $('ctaPrice').click(); };
 $('ctaPrice').onclick = () => {
   db.prices[cursor] = Math.max(0, Math.floor(Number($('price').value)));
-  save();
-  renderHome(); show('home');
+  save(); renderHome(); show('home');
   toast(`단가를 ${fmt(db.prices[cursor])}원으로 저장했어요`);
 };
 
@@ -585,7 +737,7 @@ $('file').onchange = async e => {
     if (!o || typeof o !== 'object' || (!o.daily && !o.prices)) throw 0;
     if (!confirm('지금 있는 기록을 불러온 파일로 바꿔요. 계속할까요?')) return;
     db = { daily:o.daily||{}, prices:o.prices||{} };
-    save(); renderMore(); renderHome(); show('home');
+    save(); renderHome(); show('home');
     toast('백업을 불러왔어요');
   }catch(err){ alert('백업 파일이 아니에요.'); }
   e.target.value = '';
@@ -593,19 +745,16 @@ $('file').onchange = async e => {
 $('btnClear').onclick = () => {
   if (!confirm('모든 기록을 지워요. 되돌릴 수 없어요. 계속할까요?')) return;
   db = { daily:{}, prices:{} };
-  save(); renderMore(); renderHome(); show('home');
+  save(); renderHome(); show('home');
   toast('전체 기록을 지웠어요');
 };
 
-/* ── 시작 ── */
+/* ─────────── 시작 ─────────── */
 cursor = cycleKeyOf(todayStr());
 renderHome();
 
-/* 오프라인 지원 (https 또는 localhost 에서만 동작) */
 if ('serviceWorker' in navigator && location.protocol !== 'file:'){
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js').catch(() => {});
-  });
+  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 </script>
 </body>
