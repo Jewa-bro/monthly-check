@@ -1,6 +1,6 @@
 /* 오프라인 동작용 서비스워커 */
 // 이름을 바꿀 때 올려준다. 그러면 옛 이름이 담긴 화면이 캐시에 남지 않는다
-const CACHE = 'saengsu-v15';
+const CACHE = 'saengsu-v16';
 const SHELL = [
   './',
   './index.html',

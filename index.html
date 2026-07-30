@@ -69,7 +69,7 @@ button{font:inherit; letter-spacing:inherit; cursor:pointer}
 }
 .pill:active{background:var(--press)}
 .pill .car{color:var(--t3); display:flex}
-.pill.sm{font-size:17px; font-weight:700; height:40px}
+.pill.sm{font-size:17px; font-weight:700; height:44px}
 
 /* ───── 히어로 ───── */
 .hero{padding:14px 4px 34px}
@@ -112,13 +112,14 @@ button{font:inherit; letter-spacing:inherit; cursor:pointer}
   display:inline-block; margin-left:6px; padding:2px 7px; border-radius:6px;
   background:var(--blue-l); color:var(--blue); font-size:12px; font-weight:700; vertical-align:2px;
 }
-.row .l .muted{color:var(--t4); font-weight:500}
 .row .r{font-size:17px; font-weight:700; font-variant-numeric:tabular-nums}
 .row .r small{color:var(--t3); font-weight:500; margin-left:2px; font-size:15px}
 .row .c{color:var(--t4); display:flex; flex:none}
 .blank{padding:30px 0 34px; text-align:center; color:var(--t3); font-size:16px; font-weight:500}
+/* 손가락으로 누르는 영역은 44px 이상. 음수 여백으로 줄 높이는 늘리지 않는다 */
 .txtdel{
-  flex:none; margin-left:4px; padding:8px 2px 8px 10px; border:0; background:none;
+  flex:none; min-width:56px; min-height:44px; padding:12px 10px;
+  margin:-10px -4px -10px 4px; border:0; background:none;
   color:var(--t3); font-size:15px; font-weight:500; text-decoration:underline;
 }
 
@@ -159,12 +160,10 @@ button{font:inherit; letter-spacing:inherit; cursor:pointer}
 .helper b{color:var(--blue); font-weight:600}
 .danger{
   display:block; margin:30px auto 0; border:0; background:none; font:inherit;
-  color:var(--t3); font-size:15px; font-weight:500; text-decoration:underline; padding:10px;
+  color:var(--t3); font-size:15px; font-weight:500; text-decoration:underline;
+  padding:12px 16px;                 /* 손가락으로 누르는 영역 44px 이상 */
 }
 [hidden]{display:none !important}   /* display 를 지정한 요소도 hidden 이면 확실히 감춘다 */
-input[type=number]{-moz-appearance:textfield}
-input[type=number]::-webkit-outer-spin-button,
-input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 
 /* ───── 일괄 입력 ───── */
 .bsum{
@@ -218,7 +217,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 .sheet .shead{display:flex; align-items:center; padding:8px 0 6px}
 .sheet .shead b{flex:1; font-size:19px; font-weight:700}
 .sheet .x{
-  width:40px; height:40px; border:0; background:none; color:var(--t3);
+  width:44px; height:44px; border:0; background:none; color:var(--t3);
   display:flex; align-items:center; justify-content:center; border-radius:50%;
 }
 .sheet .x:active{background:var(--press)}
@@ -263,8 +262,7 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 }
 .gbtn:active{background:#EFD800}
 .gbtn .glogo{display:flex}
-.gretry, .gskip{display:block; margin:16px auto 0; font-size:15px; padding:8px}
-.gskip{color:var(--t3)}
+.gretry{display:block; margin:16px auto 0; font-size:15px; padding:8px}
 
 /* ───── 확인창 ─────
    기기 기본 confirm/alert 은 모양을 정할 수 없고 앱 밖의 것처럼 보인다.
@@ -392,7 +390,7 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
       <div id="list"></div>
     </div>
 
-    <button class="linkbtn" id="btnMore" style="display:block; margin:14px auto 0; color:var(--t3); font-size:15px; padding:8px">계정 · 설정</button>
+    <button class="linkbtn" id="btnMore" style="display:block; margin:14px auto 0; color:var(--t3); font-size:15px; padding:13px 16px">계정 · 설정</button>
 
     <div class="cta"><div><button class="btn" id="ctaHome">실적 기록하기</button></div></div>
   </div>
@@ -926,9 +924,9 @@ function renderHome(){
   } else {
     // 값은 '지금 적용 중인 단가' 하나만. 기간 중에 바뀌었으면 그것만 덧붙인다
     $('priceValue').textContent = `${fmt(nowRate)}원`;
+    // 기간 중에 바뀐 이력은 단가 화면에 있다. 여기에 덧붙이면 좁은 화면에서 두 줄이 된다
     const st = rateStart(refDay);
-    $('priceScope').textContent = (st ? rateFrom(st) : '')
-      + (inCycle.size > 1 ? ' · 기간 중 바뀜' : ' 적용 중');
+    $('priceScope').textContent = st ? `${rateFrom(st)} 적용 중` : '적용 중';
   }
   $('priceValue').style.color = nowRate ? 'var(--t1)' : 'var(--blue)';
 
@@ -1374,7 +1372,7 @@ $('rateList').onclick = async e => {
 $('btnClear').onclick = async () => {
   const days = Object.keys(db.daily).length;
   const ok = await ask({ title:'모든 기록을 지울까요?',
-                         body:`기록 ${days}일과 단가가 계정에서 전부 없어져요. 되돌릴 수 없습니다.`,
+                         body:`기록 ${days}일과 단가가 계정에서 전부 없어져요. 되돌릴 수 없어요.`,
                          ok:'전체 삭제', danger:true });
   if (!ok) return;
   db = { daily:{}, rates:{} };
