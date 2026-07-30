@@ -266,13 +266,6 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 .gretry, .gskip{display:block; margin:16px auto 0; font-size:15px; padding:8px}
 .gskip{color:var(--t3)}
 
-/* 동기화 상태 — 문제가 있을 때만 보인다 */
-.sync{
-  font-size:13px; font-weight:600; color:var(--t3); white-space:nowrap;
-  padding:6px 10px; border-radius:8px; background:var(--press);
-}
-.sync[hidden]{display:none}
-
 /* ───── 확인창 ─────
    기기 기본 confirm/alert 은 모양을 정할 수 없고 앱 밖의 것처럼 보인다.
    left:50% 대신 left/right + margin:auto 로 가운데를 잡는다(폭이 반으로 잘리지 않게). */
@@ -379,7 +372,6 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
         <span id="mName">-</span>
         <span class="car"><svg width="18" height="18"><use href="#i-caret"/></svg></span>
       </button>
-      <span class="sync" id="sync" style="margin-left:auto" hidden></span>
     </div>
 
     <div class="hero">
@@ -727,17 +719,32 @@ function cloudReplace(){
 }
 const gone = () => api.deleteField();
 
-function setSync(meta, err){
-  const chip = $('sync');
-  let text = '';
-  if (err) text = '동기화 안 됨';
-  else if (meta && meta.hasPendingWrites) text = '저장 중…';
-  else if (meta && meta.fromCache) text = '오프라인';
-  chip.textContent = text;
-  chip.hidden = !text;
+/* 홈에는 아무것도 표시하지 않는다. 상태는 계정 화면에서만 보여준다.
+   주의: fromCache 는 '인터넷이 없다' 는 뜻이 아니다. 앱을 열면 Firestore 가
+   캐시본을 먼저 주고 서버본을 곧이어 주기 때문에 그 첫 순간에도 true 다.
+   그래서 바로 단정하지 않고, 서버본이 끝내 오지 않을 때만 오프라인으로 본다. */
+let syncTimer = null, lastMeta = null;
+function showSync(text){
   const s = $('acctSync');
   if (s) s.textContent = text || '최신 상태';
 }
+function setSync(meta, err){
+  clearTimeout(syncTimer);
+  if (meta) lastMeta = meta;
+  if (err){ showSync('동기화 안 됨'); return; }
+  if (meta && meta.hasPendingWrites){ showSync('저장 중…'); return; }
+  if (meta && meta.fromCache){
+    if (!navigator.onLine){ showSync('오프라인 — 연결되면 자동으로 올라가요'); return; }
+    showSync('');
+    syncTimer = setTimeout(() => {
+      if (lastMeta && lastMeta.fromCache) showSync('오프라인 — 연결되면 자동으로 올라가요');
+    }, 5000);
+    return;
+  }
+  showSync('');
+}
+addEventListener('offline', () => { clearTimeout(syncTimer); showSync('오프라인 — 연결되면 자동으로 올라가요'); });
+addEventListener('online',  () => { clearTimeout(syncTimer); showSync(''); });
 
 function renderAccount(){
   const mail = $('acctMail');
