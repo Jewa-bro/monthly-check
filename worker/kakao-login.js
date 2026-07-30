@@ -12,8 +12,8 @@
  * 직접 하므로, 이 Worker 가 멈춰도 이미 로그인한 사람은 계속 쓸 수 있다.
  *
  * ── Cloudflare 에 넣어야 하는 값 (Settings → Variables → Secret) ──
- *   KAKAO_REST_KEY       카카오 개발자 > 앱 키 > REST API 키
- *   KAKAO_CLIENT_SECRET  카카오 개발자 > 카카오 로그인 > 보안 > Client Secret
+ *   KAKAO_REST_KEY       카카오 개발자 > 플랫폼 키 > REST API 키
+ *   KAKAO_CLIENT_SECRET  (선택) 카카오 로그인 > 보안 > Client Secret. 안 켰으면 넣지 않는다
  *   FB_CLIENT_EMAIL      Firebase 서비스 계정 JSON 의 client_email
  *   FB_PRIVATE_KEY       Firebase 서비스 계정 JSON 의 private_key (----BEGIN 부터 전부)
  *   ALLOW_ORIGIN         https://jewa-bro.github.io
@@ -50,16 +50,20 @@ export default {
 
     try {
       // ① 카카오: 인증 코드 → 액세스 토큰
+      // Client Secret 은 카카오에서 선택 기능이다. 켜지 않았다면 아예 보내지 않는다
+      // (빈 값을 보내면 오히려 거절당한다)
+      const form = new URLSearchParams({
+        grant_type: 'authorization_code',
+        client_id: env.KAKAO_REST_KEY,
+        redirect_uri: redirectUri,
+        code,
+      });
+      if (env.KAKAO_CLIENT_SECRET) form.set('client_secret', env.KAKAO_CLIENT_SECRET);
+
       const tokenRes = await fetch(KAKAO_TOKEN_URL, {
         method: 'POST',
         headers: { 'Content-Type': 'application/x-www-form-urlencoded;charset=utf-8' },
-        body: new URLSearchParams({
-          grant_type: 'authorization_code',
-          client_id: env.KAKAO_REST_KEY,
-          client_secret: env.KAKAO_CLIENT_SECRET || '',
-          redirect_uri: redirectUri,
-          code,
-        }),
+        body: form,
       });
       const tokenData = await tokenRes.json();
       if (!tokenRes.ok || !tokenData.access_token) {
