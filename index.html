@@ -370,7 +370,6 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
       구글로 시작하기
     </button>
     <button class="linkbtn gretry" id="btnRetry" hidden>다시 시도</button>
-    <button class="linkbtn gskip" id="btnSkip" hidden>이 기기에만 저장하고 쓰기</button>
   </div>
 </div>
 
@@ -404,7 +403,7 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
       <div id="list"></div>
     </div>
 
-    <button class="linkbtn" id="btnMore" style="display:block; margin:14px auto 0; color:var(--t3); font-size:15px; padding:8px">백업 · 설정</button>
+    <button class="linkbtn" id="btnMore" style="display:block; margin:14px auto 0; color:var(--t3); font-size:15px; padding:8px">계정 · 설정</button>
 
     <div class="cta"><div><button class="btn" id="ctaHome">실적 기록하기</button></div></div>
   </div>
@@ -486,11 +485,11 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
     <div class="cta"><div><button class="btn" id="ctaPrice" disabled>저장하기</button></div></div>
   </div>
 
-  <!-- ─────────── 백업 · 설정 ─────────── -->
+  <!-- ─────────── 계정 ─────────── -->
   <div class="view" id="v-more">
     <div class="bar">
       <button class="back" data-back aria-label="뒤로"><svg width="24" height="24"><use href="#i-back"/></svg></button>
-      <div class="htitle">계정 · 백업</div>
+      <div class="htitle">계정</div>
     </div>
 
     <div class="card">
@@ -505,16 +504,9 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
         <span class="r" id="acctSync" style="color:var(--t3); font-weight:500; font-size:16px">-</span>
       </div>
     </div>
-    <div class="note" id="acctNote">기록은 계정에 자동으로 저장돼요. 폰을 바꾸거나 앱을 지워도
-      같은 구글 계정으로 로그인하면 그대로 이어집니다.</div>
-
-    <div class="card">
-      <button class="row" id="btnExport"><span class="l" style="color:var(--t1); font-weight:600">백업 파일 저장</span><span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span></button>
-      <button class="row" id="btnImport"><span class="l" style="color:var(--t1); font-weight:600">백업 불러오기</span><span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span></button>
-      <input type="file" id="file" accept="application/json" hidden>
-    </div>
-    <div class="note">계정 저장과 별개로 파일로도 남겨둘 수 있어요.
-      계정을 잃거나 실수로 전체 삭제했을 때의 마지막 대비책입니다.</div>
+    <div class="note" id="acctNote">기록은 구글 계정에 저장돼요. 폰을 바꾸거나 앱을 지워도
+      같은 계정으로 로그인하면 그대로 이어집니다. 인터넷이 끊겨도 쓸 수 있고,
+      연결되면 자동으로 올라갑니다.</div>
     <button class="danger" id="btnClear">전체 기록 삭제</button>
   </div>
 
@@ -563,14 +555,13 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
 <div class="toast" id="toast"></div>
 
 <script>
-const KEY = 'monthly-delivery-check.v1';
 const pad = n => String(n).padStart(2,'0');
 const fmt = n => (n||0).toLocaleString('ko-KR');
 const DOW = ['일','월','화','수','목','금','토'];
 const $ = id => document.getElementById(id);
 const ico = (id, s) => `<svg width="${s}" height="${s}"><use href="#i-${id}"/></svg>`;
 
-let db = load();
+let db = { daily:{}, rates:{} };   // 서버에서 받아온 기록. 기기에는 저장하지 않는다
 let cursor;          // 홈에서 보고 있는 정산월 'YYYY-MM' (26일 시작월)
 let editDate;        // 입력/수정 화면의 날짜
 let editMode;        // 'new' = 기록하기(날짜 변경 가능) / 'edit' = 목록에서 들어온 수정
@@ -586,30 +577,14 @@ let modalOn = false, askResolve = null, askResult = false;   // 확인창
 let afterBack = null;   // 뒤로가기가 끝난 뒤 이어서 할 일 (시트에서 값을 고른 경우)
 let toastTimer = null;
 
-/* ── 저장소 ── */
-function normalize(o){
-  o = o && typeof o === 'object' ? o : {};
-  const daily = o.daily || {};
-  let rates = o.rates;
-  if (!rates){
-    // 옛 구조(달마다 단가) → 새 구조(그 날부터 계속)로 옮긴다.
-    // 옛 키 'YYYY-MM' 은 그 달 26일에 시작하는 기간이었으므로 시작일을 그대로 쓴다
-    rates = {};
-    for (const k in (o.prices || {})) if (o.prices[k]) rates[`${k}-26`] = o.prices[k];
-  }
-  return { daily, rates };
-}
-function load(){
-  try{ return normalize(JSON.parse(localStorage.getItem(KEY))); }
-  catch(e){ return { daily:{}, rates:{} }; }
-}
-const save = () => localStorage.setItem(KEY, JSON.stringify(db));
+/* ══════════ 저장은 계정에만 ══════════
+   기기에는 저장하지 않는다. 로그인해야 쓸 수 있고, 기록은 계정에만 남는다.
+   · 값을 바꿀 때: 바뀐 날짜만 서버로 올린다(통째로 덮어쓰지 않아 다른 날을 잃지 않는다)
+   · 서버가 바뀌면 화면이 따라 바뀐다(다른 기기에서 지운 것도 따라 지워진다)
+   Firestore 자체 캐시를 켜 두었기 때문에, 한 번 로그인한 뒤에는 인터넷이 끊겨도
+   읽고 쓸 수 있고 연결되면 자동으로 올라간다. */
+const shape = o => ({ daily: (o && o.daily) || {}, rates: (o && o.rates) || {} });
 
-/* ══════════ 계정 동기화 ══════════
-   기기 안(localStorage)이 계속 화면의 원본이다. 그래서 인터넷이 없어도 지금처럼 동작한다.
-   Firebase 는 그 위에 얹는 동기화 계층으로만 쓴다.
-   · 값을 바꿀 때: 기기에 저장하고, 바뀐 날짜만 서버로 올린다(오프라인이면 쌓아두고 나중에 올라간다)
-   · 서버가 바뀔 때: 서버 내용을 기기에 받아쓴다(다른 기기에서 지운 것도 따라 지워진다) */
 const FB = {
   apiKey: "AIzaSyBg5ccH49HpSaKewLF_376ysjnFDR2Jfks",
   authDomain: "monthly-b6382.firebaseapp.com",
@@ -619,9 +594,7 @@ const FB = {
   appId: "1:1027738806080:web:bb7ed9e84262c482eabca5"
 };
 const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
-const UIDKEY = KEY + '.uid';          // 마지막으로 맞춘 계정 — 다른 계정 데이터가 섞이지 않게
 let api = null, fbAuth = null, fbStore = null, fbUser = null, unwatch = null;
-let localOnly = false;                 // 로그인 없이 이 기기에만 저장하는 모드
 
 const userRef = () => api.doc(fbStore, 'users', fbUser.uid);
 
@@ -639,92 +612,76 @@ async function startCloud(){
     fbStore = c.initializeFirestore(app, { localCache: c.persistentLocalCache({}) });
     b.onAuthStateChanged(fbAuth, onUser);
   }catch(err){
-    // 인터넷이 없거나 SDK 를 못 받은 경우
-    if (localStorage.getItem(UIDKEY)) enterApp(true);        // 전에 로그인한 기기면 그냥 쓰게 한다
-    else gate('net', err);
+    gate('net', err);        // SDK 를 못 받으면 쓸 수 없다 (저장할 곳이 계정뿐이므로)
   }
 }
 
 function gate(mode, err){
   const g = $('gate'), msg = $('gMsg');
   g.classList.remove('off');
-  $('btnLogin').hidden = mode !== 'signin';
+  $('btnLogin').hidden = mode !== 'signin' && mode !== 'fail';
   $('btnRetry').hidden = mode !== 'net';
-  $('btnSkip').hidden  = mode === 'wait';
   if (mode === 'wait')   msg.innerHTML = '잠시만요…';
-  if (mode === 'signin') msg.innerHTML = '배달 실적을 계정에 함께 저장해요.<br>기기를 바꾸거나 앱을 지워도 기록이 남습니다.';
-  if (mode === 'net')    msg.innerHTML = '인터넷에 연결되지 않아 로그인할 수 없어요.<br>연결한 뒤 다시 시도해 주세요.';
+  if (mode === 'signin') msg.innerHTML = '배달 실적을 구글 계정에 저장해요.<br>기기를 바꾸거나 앱을 지워도 기록이 남습니다.';
+  if (mode === 'net')    msg.innerHTML = '인터넷에 연결되지 않았어요.<br>연결한 뒤 다시 시도해 주세요.';
   if (mode === 'fail')   msg.innerHTML = `로그인하지 못했어요.<br><span style="font-size:13px">${(err && err.code) || ''}</span>`;
 }
-function enterApp(asLocalOnly){
-  localOnly = !!asLocalOnly;
+function enterApp(){
   $('gate').classList.add('off');
+  cursor = cycleKeyOf(todayStr());
+  show('home');
   renderHome();
   renderAccount();
+  replaceNav();       // 홈을 히스토리의 뿌리로 (여기서 뒤로가면 앱이 닫힌다)
 }
 
-async function onUser(u){
+function onUser(u){
   fbUser = u;
-  if (!u){ gate('signin'); if (unwatch){ unwatch(); unwatch = null; } return; }
-  enterApp(false);
-  try{ await firstSync(u); }catch(err){ console.warn('첫 동기화 실패', err); }
-  watchCloud();
-  renderAccount();
-}
-
-/* 처음 로그인했을 때 한 번만: 기기에 있던 기록을 계정으로 올린다 */
-async function firstSync(u){
-  const prev = localStorage.getItem(UIDKEY);
-  const snap = await api.getDoc(userRef());
-  const cloud = normalize(snap.exists() ? snap.data() : {});
-
-  if (prev && prev !== u.uid){
-    db = cloud;                                   // 다른 계정 — 기기에 있던 것은 섞지 않는다
-  } else {
-    const mine = Object.keys(db.daily).length || Object.keys(db.rates).length;
-    db = { daily:{ ...cloud.daily, ...db.daily }, rates:{ ...cloud.rates, ...db.rates } };
-    if (mine) await api.setDoc(userRef(), { daily: db.daily, rates: db.rates }, { merge:true });
+  if (unwatch){ unwatch(); unwatch = null; }
+  if (!u){
+    db = { daily:{}, rates:{} };      // 남의 기록이 화면에 남지 않게 비운다
+    gate('signin');
+    return;
   }
-  localStorage.setItem(UIDKEY, u.uid);
-  save();
-  renderHome();
+  gate('wait');
+  watchCloud();                       // 첫 응답이 오면 문을 닫는다
 }
 
-/* 이후로는 서버가 원본. 다른 기기에서 지운 것도 따라 지워진다 */
+/* 서버가 유일한 원본. 다른 기기에서 지운 것도 따라 지워진다 */
 function watchCloud(){
-  if (unwatch) unwatch();
+  let first = true;
   unwatch = api.onSnapshot(userRef(), snap => {
+    db = shape(snap.exists() ? snap.data() : null);
     setSync(snap.metadata);
-    if (!snap.exists()) return;
-    db = normalize(snap.data());
-    save();
+    if (first){ first = false; enterApp(); return; }
     renderHome();
+    renderAccount();
     // 입력 중인 화면은 건드리지 않는다. 일괄 입력은 고치던 값이 없을 때만 다시 그린다
     if (curView === 'bulk' && !changedDates().length) renderBulk();
   }, err => {
     console.warn('동기화 끊김', err);
     setSync(null, err);
+    if (first){ first = false; enterApp(); }   // 못 읽어도 앱은 열어준다
   });
 }
 
+/* 바뀐 날짜만 올린다 */
 function cloudWrite(patch){
-  if (!fbUser || !fbStore || !api) return;      // 로그인 전이면 기기에만 남는다
+  if (!fbUser || !api) return;
   api.setDoc(userRef(), patch, { merge:true }).catch(e => console.warn('올리기 실패', e));
 }
-/* 통째로 바꾸는 경우(백업 불러오기·전체 삭제)는 merge 를 쓰면 옛 날짜가 남는다 */
+/* 통째로 바꿀 때(전체 삭제)는 merge 를 쓰면 옛 날짜가 남는다 */
 function cloudReplace(){
-  if (!fbUser || !fbStore || !api) return;
+  if (!fbUser || !api) return;
   api.setDoc(userRef(), { daily: db.daily, rates: db.rates })
      .catch(e => console.warn('올리기 실패', e));
 }
-/* SDK 를 못 받은 상태(로컬 전용)에서도 호출되므로 api 가 없으면 그냥 넘긴다 */
-const gone = () => api ? api.deleteField() : null;
+const gone = () => api.deleteField();
 
 function setSync(meta, err){
   const chip = $('sync');
   let text = '';
-  if (localOnly) text = '이 기기에만 저장';
-  else if (err) text = '동기화 안 됨';
+  if (err) text = '동기화 안 됨';
   else if (meta && meta.hasPendingWrites) text = '저장 중…';
   else if (meta && meta.fromCache) text = '오프라인';
   chip.textContent = text;
@@ -736,13 +693,8 @@ function setSync(meta, err){
 function renderAccount(){
   const mail = $('acctMail');
   if (!mail) return;
-  mail.textContent = fbUser ? (fbUser.email || fbUser.displayName || '로그인됨')
-                            : (localOnly ? '로그인하지 않음 (이 기기에만 저장)' : '-');
+  mail.textContent = fbUser ? (fbUser.email || fbUser.displayName || '로그인됨') : '-';
   $('btnLogout').hidden = !fbUser;
-  $('acctNote').textContent = fbUser
-    ? '기록은 계정에 자동으로 저장돼요. 폰을 바꾸거나 앱을 지워도 같은 구글 계정으로 로그인하면 그대로 이어집니다.'
-    : '로그인하지 않아서 이 기기에만 저장됩니다. 인터넷 기록을 지우거나 기기를 바꾸면 사라질 수 있어요.';
-  if (!fbUser) setSync(null);
 }
 
 /* ── 날짜 ── */
@@ -1307,7 +1259,6 @@ $('ctaSave').onclick = () => {
   const n = Math.max(0, Math.floor(Number($('count').value)));
   const isEdit = editMode === 'edit';
   db.daily[editDate] = n;
-  save();
   cloudWrite({ daily: { [editDate]: n } });
   cursor = cycleKeyOf(editDate);
   goHome();
@@ -1319,7 +1270,6 @@ $('btnDel').onclick = async () => {
                          ok:'삭제', danger:true });
   if (!ok) return;
   delete db.daily[editDate];
-  save();
   cloudWrite({ daily: { [editDate]: gone() } });
   goHome();
   toast(`${dayWord(editDate)} 기록을 지웠어요`);
@@ -1362,7 +1312,6 @@ $('ctaBulk').onclick = () => {
     if (raw === ''){ delete db.daily[d]; patch[d] = gone(); }
     else { db.daily[d] = Math.max(0, Math.floor(Number(raw))); patch[d] = db.daily[d]; }
   }
-  save();
   cloudWrite({ daily: patch });
   cursor = bulkKey; bulkDraft = {};
   goHome();
@@ -1374,7 +1323,6 @@ $('rateDateField').onclick = () => openSheet('date-rate');
 $('ctaPrice').onclick = () => {
   const n = Math.max(0, Math.floor(Number($('price').value)));
   db.rates[rateDate] = n;
-  save();
   cloudWrite({ rates: { [rateDate]: n } });
   goHome();
   toast(`${rateFrom(rateDate)} ${fmt(n)}원으로 저장했어요`);
@@ -1388,49 +1336,18 @@ $('rateList').onclick = async e => {
   if (!ok) return;
   const dead = gone();
   delete db.rates[k];
-  save();
   cloudWrite({ rates: { [k]: dead } });
   renderPrice(); renderHome();
   toast('단가를 지웠어요');
 };
 
-$('btnExport').onclick = () => {
-  const a = document.createElement('a');
-  const blob = new Blob([JSON.stringify(db,null,2)], {type:'application/json'});
-  a.href = URL.createObjectURL(blob);
-  a.download = `생수배달_${todayStr()}.json`;
-  a.click(); URL.revokeObjectURL(a.href);
-  toast('백업 파일을 저장했어요');
-};
-$('btnImport').onclick = () => $('file').click();
-$('file').onchange = async e => {
-  const f = e.target.files[0];
-  e.target.value = '';        // 같은 파일을 다시 골라도 동작하도록 먼저 비운다
-  if (!f) return;
-  const 아님 = () => tell('백업 파일이 아니에요', '이 앱에서 저장한 파일인지 확인해 주세요.');
-  let o;
-  try { o = JSON.parse(await f.text()); } catch(err){ return 아님(); }
-  if (!o || typeof o !== 'object' || (!o.daily && !o.rates && !o.prices)) return 아님();
-
-  const days = Object.keys(o.daily || {}).length;
-  const ok = await ask({ title:'지금 있는 기록을 바꿀까요?',
-                         body:`불러온 파일의 기록 ${days}일로 덮어씁니다. 지금 기록은 없어져요.`,
-                         ok:'불러오기' });
-  if (!ok) return;
-  db = normalize(o);          // 옛 백업(달마다 단가)도 받아들인다
-  save();
-  cloudReplace();
-  goHome();
-  toast('백업을 불러왔어요');
-};
 $('btnClear').onclick = async () => {
   const days = Object.keys(db.daily).length;
   const ok = await ask({ title:'모든 기록을 지울까요?',
-                         body:`기록 ${days}일과 단가가 전부 없어져요. 되돌릴 수 없으니 백업 파일이 있는지 먼저 확인하세요.`,
+                         body:`기록 ${days}일과 단가가 계정에서 전부 없어져요. 되돌릴 수 없습니다.`,
                          ok:'전체 삭제', danger:true });
   if (!ok) return;
   db = { daily:{}, rates:{} };
-  save();
   cloudReplace();
   goHome();
   toast('전체 기록을 지웠어요');
@@ -1450,30 +1367,25 @@ $('btnLogin').onclick = async () => {
   $('btnLogin').disabled = false;
 };
 $('btnRetry').onclick = () => { gate('wait'); startCloud(); };
-$('btnSkip').onclick = () => enterApp(true);
 $('btnLogout').onclick = async () => {
   const ok = await ask({ title:'로그아웃할까요?',
-                         body:'이 기기에 있는 기록은 지워지지 않아요. 다시 로그인하면 계정의 기록과 맞춰집니다.',
+                         body:'기록은 계정에 그대로 남아요. 다시 로그인하면 이어서 볼 수 있습니다.',
                          ok:'로그아웃' });
   if (!ok) return;
-  if (unwatch){ unwatch(); unwatch = null; }
   try{ await api.signOut(fbAuth); }catch(err){ console.warn(err); }
 };
 
 /* ─────────── 시작 ─────────── */
 cursor = cycleKeyOf(todayStr());
-show('home');
-renderHome();
-replaceNav();          // 홈을 히스토리의 뿌리로 삼는다 (여기서 뒤로가면 앱이 닫힌다)
 gate('wait');
-startCloud();
+startCloud();          // 로그인이 확인되면 enterApp() 이 화면을 연다
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:'){
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
 }
 
-/* 기기 용량이 부족할 때 브라우저가 실적을 임의로 지우지 않도록 요청한다.
-   사용자가 직접 '쿠키 및 사이트 데이터'를 지우는 것은 막을 수 없다 — 백업이 유일한 대비책 */
+/* 기기 용량이 부족할 때 브라우저가 오프라인 캐시를 임의로 지우지 않도록 요청한다.
+   기록 자체는 계정에 있으므로 지워져도 다시 받아온다 */
 if (navigator.storage && navigator.storage.persist){
   navigator.storage.persisted().then(ok => { if (!ok) navigator.storage.persist(); }).catch(() => {});
 }
