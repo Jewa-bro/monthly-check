@@ -253,9 +253,9 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 .gbox{width:100%; max-width:340px; text-align:center}
 .gicon{width:76px; height:76px; border-radius:22px; display:block; margin:0 auto 18px}
 .gbox b{display:block; font-size:26px; font-weight:800; letter-spacing:-0.035em}
+/* 평소엔 비어 있고, 오류가 났을 때만 글이 들어간다 */
 .gbox p{
-  margin:10px 0 30px; font-size:15px; font-weight:500; color:var(--t3); line-height:1.6;
-  min-height:48px;
+  margin:8px 0 28px; font-size:15px; font-weight:500; color:var(--t3); line-height:1.6;
 }
 .gbtn{                          /* 카카오 브랜드 색 */
   display:flex; align-items:center; justify-content:center; gap:8px;
@@ -332,8 +332,6 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
   opacity:0; transition:opacity .22s, transform .22s; pointer-events:none; text-align:center;
 }
 .toast.on{opacity:1; transform:translateY(0)}
-.note{color:var(--t3); font-size:14px; font-weight:500; line-height:1.6; padding:4px 4px 20px}
-.note b{color:var(--t2)}
 </style>
 </head>
 <body>
@@ -350,7 +348,7 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
   <div class="gbox">
     <img class="gicon" src="./icon-512.png" alt="">
     <b>생수</b>
-    <p id="gMsg">배달 실적을 카카오 계정에 저장해요.<br>기기를 바꾸거나 앱을 지워도 기록이 남습니다.</p>
+    <p id="gMsg"></p>
     <button class="btn gbtn" id="btnLogin" hidden>
       <span class="glogo" aria-hidden="true">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="#191600">
@@ -442,8 +440,6 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
     </div>
     <div class="bsum"><span id="bRange">-</span><span>합계 <b id="bTotal">0</b>건</span></div>
     <div class="card" style="padding:14px 20px"><div id="bulkList"></div></div>
-    <div class="note">칸에 숫자를 넣고 아래 <b>저장하기</b>를 누르면 한 번에 저장돼요.
-      비워두면 그 날은 기록하지 않아요.</div>
     <div class="cta"><div><button class="btn" id="ctaBulk" disabled>저장하기</button></div></div>
   </div>
 
@@ -460,7 +456,7 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
         <span class="car"><svg width="16" height="16"><use href="#i-caret"/></svg></span>
       </button>
     </div>
-    <div class="qs" id="pQS">이 날부터 바꿀 때까지 계속 적용돼요</div>
+    <div class="qs" id="pQS"></div>
     <label class="bignum empty" id="pBox" for="price">
       <input id="price" type="text" inputmode="none" readonly autocomplete="off" placeholder="0">
       <span class="unit">원</span>
@@ -489,9 +485,6 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
         <button class="txtdel" id="btnLogout" hidden>로그아웃</button>
       </div>
     </div>
-    <div class="note" id="acctNote">기록은 카카오 계정에 저장돼요. 폰을 바꾸거나 앱을 지워도
-      같은 계정으로 로그인하면 그대로 이어집니다. 인터넷이 끊겨도 쓸 수 있고,
-      연결되면 자동으로 올라갑니다.</div>
     <button class="danger" id="btnClear">전체 기록 삭제</button>
   </div>
 
@@ -659,7 +652,7 @@ function gate(mode, err){
   $('btnLogin').hidden = mode !== 'signin' && mode !== 'fail';
   $('btnRetry').hidden = mode !== 'net';
   if (mode === 'wait')   msg.innerHTML = '잠시만요…';
-  if (mode === 'signin') msg.innerHTML = '배달 실적을 카카오 계정에 저장해요.<br>기기를 바꾸거나 앱을 지워도 기록이 남습니다.';
+  if (mode === 'signin') msg.innerHTML = '';
   if (mode === 'net')    msg.innerHTML = '인터넷에 연결되지 않았어요.<br>연결한 뒤 다시 시도해 주세요.';
   if (mode === 'fail')   msg.innerHTML = `로그인하지 못했어요.<br><span style="font-size:13px">${(err && err.code) || ''}</span>`;
 }
@@ -925,7 +918,7 @@ function renderHome(){
   const nowRate = rateOn(refDay);
   if (!nowRate && inCycle.size === 0){
     $('priceValue').textContent = '입력하기';
-    $('priceScope').textContent = '넣으면 바꿀 때까지 계속 적용돼요';
+    $('priceScope').textContent = '';
   } else {
     // 값은 '지금 적용 중인 단가' 하나만. 기간 중에 바뀌었으면 그것만 덧붙인다
     $('priceValue').textContent = `${fmt(nowRate)}원`;
@@ -1069,9 +1062,7 @@ function openPrice(){
 }
 function renderPrice(){
   $('rateDateLabel').textContent = rateDate === FIRST ? '처음부터' : `${mdDow(rateDate)}부터`;
-  $('pQS').textContent = rateDate === FIRST
-    ? '모든 기록에 적용돼요. 나중에 바꾸면 그 날부터 새 단가예요'
-    : '이 날부터 바꿀 때까지 계속 적용돼요';
+  $('pQS').textContent = rateDate === FIRST ? '모든 기록에 적용돼요' : '이 날부터 적용돼요';
   sizeNum($('price'), $('pBox'));
   const raw = $('price').value.trim(), n = Math.floor(Number(raw));
   const ok = raw !== '' && isFinite(n) && n >= 0;
@@ -1366,7 +1357,7 @@ $('rateList').onclick = async e => {
   const k = e.target.dataset?.k;
   if (!k) return;
   const ok = await ask({ title:'이 단가를 지울까요?',
-                         body:`${rateFrom(k)} ${fmt(db.rates[k])}원. 지우면 그 앞의 단가가 이어서 적용돼요.`,
+                         body:`${rateFrom(k)} ${fmt(db.rates[k])}원`,
                          ok:'삭제', danger:true });
   if (!ok) return;
   const dead = gone();
@@ -1400,7 +1391,7 @@ $('btnLogin').onclick = () => {
 $('btnRetry').onclick = () => { gate('wait'); startCloud(); };
 $('btnLogout').onclick = async () => {
   const ok = await ask({ title:'로그아웃할까요?',
-                         body:'기록은 계정에 그대로 남아요. 다시 로그인하면 이어서 볼 수 있습니다.',
+                         body:'기록은 계정에 그대로 남아요.',
                          ok:'로그아웃' });
   if (!ok) return;
   try{ await api.signOut(fbAuth); }catch(err){ console.warn(err); }
