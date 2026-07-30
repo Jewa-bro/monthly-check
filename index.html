@@ -257,11 +257,11 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
   margin:10px 0 30px; font-size:15px; font-weight:500; color:var(--t3); line-height:1.6;
   min-height:48px;
 }
-.gbtn{
-  display:flex; align-items:center; justify-content:center; gap:10px;
-  background:var(--white); color:var(--t1); border:1px solid var(--line);
+.gbtn{                          /* 카카오 브랜드 색 */
+  display:flex; align-items:center; justify-content:center; gap:8px;
+  background:#FEE500; color:#191600;
 }
-.gbtn:active{background:#F1F3F5}
+.gbtn:active{background:#EFD800}
 .gbtn .glogo{display:flex}
 .gretry, .gskip{display:block; margin:16px auto 0; font-size:15px; padding:8px}
 .gskip{color:var(--t3)}
@@ -357,17 +357,14 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
   <div class="gbox">
     <img class="gicon" src="./icon-512.png" alt="">
     <b>생수</b>
-    <p id="gMsg">배달 실적을 계정에 함께 저장해요.<br>기기를 바꾸거나 앱을 지워도 기록이 남습니다.</p>
+    <p id="gMsg">배달 실적을 카카오 계정에 저장해요.<br>기기를 바꾸거나 앱을 지워도 기록이 남습니다.</p>
     <button class="btn gbtn" id="btnLogin" hidden>
       <span class="glogo" aria-hidden="true">
-        <svg width="20" height="20" viewBox="0 0 48 48">
-          <path fill="#FFC107" d="M43.6 20.1H24v7.9h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.6-5.6C33.9 6.1 29.2 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20c11 0 19.2-8 19.2-20 0-1.3-.2-2.6-.6-3.9z"/>
-          <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3 0 5.8 1.1 7.9 3l5.6-5.6C33.9 6.1 29.2 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
-          <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.1 26.7 36 24 36c-5.3 0-9.7-3.1-11.3-8l-6.6 5C9.6 39.6 16.2 44 24 44z"/>
-          <path fill="#1976D2" d="M43.6 20.1H24v7.9h11.3c-.8 2.3-2.3 4.2-4.1 5.6l6.2 5.2C40.9 36.3 44 30.9 44 24c0-1.3-.2-2.6-.4-3.9z"/>
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="#191600">
+          <path d="M12 3C6.9 3 2.8 6.2 2.8 10.2c0 2.6 1.7 4.8 4.3 6.1l-.9 3.4c-.1.3.2.5.5.4l4-2.6c.4 0 .9.1 1.3.1 5.1 0 9.2-3.2 9.2-7.2S17.1 3 12 3z"/>
         </svg>
       </span>
-      구글로 시작하기
+      카카오로 시작하기
     </button>
     <button class="linkbtn gretry" id="btnRetry" hidden>다시 시도</button>
   </div>
@@ -594,7 +591,18 @@ const FB = {
   appId: "1:1027738806080:web:bb7ed9e84262c482eabca5"
 };
 const SDK = 'https://www.gstatic.com/firebasejs/10.12.2/';
+
+/* 카카오 로그인.
+   Firebase 에는 카카오 제공업체가 없어서, 카카오가 확인해 준 사람을 Firebase 가
+   인정하는 토큰으로 바꿔주는 서버(WORKER)를 한 번 거친다.
+   REDIRECT 는 카카오에 등록한 주소와 한 글자도 다르면 안 된다. */
+const KAKAO_KEY = '8790870a29d34ba8a6babe63fe110528';
+const WORKER    = 'https://kakao-login.wlsdyd103.workers.dev';
+const REDIRECT  = 'https://jewa-bro.github.io/monthly-check/';
+
 let api = null, fbAuth = null, fbStore = null, fbUser = null, unwatch = null;
+let exchanging = false;      // 카카오에서 돌아와 토큰을 바꾸는 중
+let gateLocked = false;      // 오류 메시지를 자동 갱신이 덮어쓰지 않게
 
 const userRef = () => api.doc(fbStore, 'users', fbUser.uid);
 
@@ -610,19 +618,60 @@ async function startCloud(){
     fbAuth = b.getAuth(app);
     // 오프라인에서도 읽고, 오프라인에서 쓴 것은 쌓아두었다가 나중에 올린다
     fbStore = c.initializeFirestore(app, { localCache: c.persistentLocalCache({}) });
+
+    // 카카오에서 돌아온 경우를 먼저 잡는다. 그래야 로그인 화면이 잠깐 스치지 않는다
+    const q = new URLSearchParams(location.search);
+    const code = q.get('code'), kakaoErr = q.get('error');
+    if (code || kakaoErr) exchanging = true;
+
     b.onAuthStateChanged(fbAuth, onUser);
+
+    if (kakaoErr){ exchanging = false; cleanUrl(); gate('fail', { code:'kakao/' + kakaoErr }); return; }
+    if (code){ gate('wait'); await kakaoFinish(code); }
   }catch(err){
     gate('net', err);        // SDK 를 못 받으면 쓸 수 없다 (저장할 곳이 계정뿐이므로)
   }
 }
 
+/* 인증 코드는 1회용이므로 처리한 뒤 주소에서 지운다. 새로고침해도 다시 쓰지 않게 */
+const cleanUrl = () => history.replaceState(null, '', location.pathname);
+
+async function kakaoFinish(code){
+  try{
+    const res = await fetch(WORKER, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, redirectUri: REDIRECT }),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok || !data.token){
+      const why = (data.detail && (data.detail.error_code || data.detail.error)) || data.error || res.status;
+      throw new Error(why);
+    }
+    await api.signInWithCustomToken(fbAuth, data.token);   // 뒤는 onUser 가 이어받는다
+  }catch(err){
+    console.warn('카카오 로그인 실패', err);
+    const raw = String(err.message || err);
+    // 통신 자체가 안 된 경우는 코드를 보여줘도 도움이 안 된다
+    gate('fail', { code: /Failed to fetch|NetworkError|load failed/i.test(raw)
+                         ? '인터넷 연결을 확인해 주세요' : raw });
+  }finally{
+    exchanging = false;
+    cleanUrl();
+  }
+}
+
 function gate(mode, err){
+  // 오류를 띄운 뒤 인증 상태 콜백이 비동기로 도착해 메시지를 덮어쓰는 것을 막는다
+  if (mode === 'signin' && gateLocked) return;
+  gateLocked = (mode === 'fail');
+
   const g = $('gate'), msg = $('gMsg');
   g.classList.remove('off');
   $('btnLogin').hidden = mode !== 'signin' && mode !== 'fail';
   $('btnRetry').hidden = mode !== 'net';
   if (mode === 'wait')   msg.innerHTML = '잠시만요…';
-  if (mode === 'signin') msg.innerHTML = '배달 실적을 구글 계정에 저장해요.<br>기기를 바꾸거나 앱을 지워도 기록이 남습니다.';
+  if (mode === 'signin') msg.innerHTML = '배달 실적을 카카오 계정에 저장해요.<br>기기를 바꾸거나 앱을 지워도 기록이 남습니다.';
   if (mode === 'net')    msg.innerHTML = '인터넷에 연결되지 않았어요.<br>연결한 뒤 다시 시도해 주세요.';
   if (mode === 'fail')   msg.innerHTML = `로그인하지 못했어요.<br><span style="font-size:13px">${(err && err.code) || ''}</span>`;
 }
@@ -640,7 +689,7 @@ function onUser(u){
   if (unwatch){ unwatch(); unwatch = null; }
   if (!u){
     db = { daily:{}, rates:{} };      // 남의 기록이 화면에 남지 않게 비운다
-    gate('signin');
+    if (!exchanging) gate('signin');  // 토큰 바꾸는 중이면 '잠시만요' 를 유지한다
     return;
   }
   gate('wait');
@@ -693,7 +742,10 @@ function setSync(meta, err){
 function renderAccount(){
   const mail = $('acctMail');
   if (!mail) return;
-  mail.textContent = fbUser ? (fbUser.email || fbUser.displayName || '로그인됨') : '-';
+  // 카카오 토큰에는 이메일이 없다. uid 가 'kakao:<사용자번호>' 이므로 그걸로 표시한다
+  mail.textContent = fbUser
+    ? (fbUser.uid.startsWith('kakao:') ? `카카오 계정 (${fbUser.uid.slice(6)})` : (fbUser.email || '로그인됨'))
+    : '-';
   $('btnLogout').hidden = !fbUser;
 }
 
@@ -1354,17 +1406,13 @@ $('btnClear').onclick = async () => {
 };
 
 /* ── 로그인 ── */
-$('btnLogin').onclick = async () => {
-  $('btnLogin').disabled = true;
+/* 카카오 로그인 화면으로 보낸다. 끝나면 code 를 달고 이 앱으로 돌아온다 */
+$('btnLogin').onclick = () => {
   gate('wait');
-  try{
-    await api.signInWithPopup(fbAuth, new api.GoogleAuthProvider());
-  }catch(err){
-    // 팝업이 막히는 환경(일부 인앱 브라우저)에서는 페이지 이동 방식으로 다시 시도한다
-    try{ await api.signInWithRedirect(fbAuth, new api.GoogleAuthProvider()); }
-    catch(err2){ gate('fail', err2); }
-  }
-  $('btnLogin').disabled = false;
+  location.href = 'https://kauth.kakao.com/oauth/authorize'
+    + `?client_id=${KAKAO_KEY}`
+    + `&redirect_uri=${encodeURIComponent(REDIRECT)}`
+    + '&response_type=code';
 };
 $('btnRetry').onclick = () => { gate('wait'); startCloud(); };
 $('btnLogout').onclick = async () => {
