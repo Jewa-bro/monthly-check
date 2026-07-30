@@ -293,8 +293,10 @@ input[type=number]::-webkit-inner-spin-button{-webkit-appearance:none; margin:0}
 .modal .mno:active{background:#DCE0E5}
 .modal .myes{background:var(--blue); color:#fff}
 .modal .myes:active{background:var(--blue-d)}
-.modal .myes.danger{background:var(--red)}
-.modal .myes.danger:active{background:#D22F25}
+/* 이름을 'danger' 로 두면 밑줄 글자 버튼용 .danger 규칙(margin·밑줄·padding)이
+   그대로 먹어서 버튼이 밀리고 폭이 어긋난다. 그래서 다른 이름을 쓴다 */
+.modal .myes.red{background:var(--red)}
+.modal .myes.red:active{background:#D22F25}
 
 /* ───── 숫자 키패드 ─────
    기기 기본 키보드는 크기·모양을 정할 수 없어 화면과 따로 노는 느낌이 난다.
@@ -873,10 +875,11 @@ function ask(opt){
   $('mBody').textContent = opt.body || '';
   $('mBody').hidden = !opt.body;
   $('mYes').textContent = opt.ok || '확인';
-  $('mYes').classList.toggle('danger', !!opt.danger);
+  $('mYes').classList.toggle('red', !!opt.danger);
   $('mNo').hidden = !!opt.alone;
   $('mNo').textContent = opt.cancel || '취소';
   modalOn = true; askResult = false;
+  if (padTarget) showPad(false);      // 확인창 뒤로 키패드가 보이면 산만하다
   $('mdim').classList.add('on');
   $('modal').classList.add('on');
   pushNav();
@@ -888,6 +891,7 @@ function hideAsk(){
   modalOn = false;
   $('mdim').classList.remove('on');
   $('modal').classList.remove('on');
+  if (padTarget) showPad(true);       // 내렸던 키패드를 되돌린다
 }
 
 function toast(msg){
