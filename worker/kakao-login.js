@@ -22,8 +22,6 @@
 const KAKAO_TOKEN_URL = 'https://kauth.kakao.com/oauth/token';
 const KAKAO_ME_URL    = 'https://kapi.kakao.com/v2/user/me';
 const FB_AUDIENCE     = 'https://identitytoolkit.googleapis.com/google.identity.identitytoolkit.v1.IdentityToolkit';
-// 앱 코드에 이미 공개되어 있는 웹 API 키. 진단(/debug)에서만 쓴다
-const FB_WEB_KEY      = 'AIzaSyBg5ccH49HpSaKewLF_376ysjnFDR2Jfks';
 
 export default {
   async fetch(request, env) {
@@ -41,39 +39,6 @@ export default {
       });
 
     if (request.method === 'OPTIONS') return new Response(null, { status: 204, headers: cors });
-
-    /* 진단용. auth/invalid-custom-token 이 났을 때 원인을 찾기 위한 것.
-       카카오를 거치지 않고 토큰만 만들어 Firebase 에 직접 넣어보고 그 응답을 돌려준다.
-       비공개 키는 절대 내보내지 않는다. 서비스 계정 이메일은 비밀이 아니다. */
-    if (request.method === 'GET' && new URL(request.url).pathname === '/debug') {
-      const out = {};
-      try {
-        const token = await makeFirebaseToken('debug:selftest', { provider: 'debug' }, env);
-        const parts = token.split('.');
-        out.토큰조각수 = parts.length;
-        out.payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-        out.설정 = {
-          FB_CLIENT_EMAIL_있음: !!env.FB_CLIENT_EMAIL,
-          FB_CLIENT_EMAIL_앞뒤공백: env.FB_CLIENT_EMAIL !== String(env.FB_CLIENT_EMAIL || '').trim(),
-          FB_PRIVATE_KEY_길이: String(env.FB_PRIVATE_KEY || '').length,
-          FB_PRIVATE_KEY_시작: String(env.FB_PRIVATE_KEY || '').slice(0, 27),
-          FB_PRIVATE_KEY_끝: String(env.FB_PRIVATE_KEY || '').trim().slice(-25),
-        };
-        // Firebase 에 실제로 넣어본다. 여기서 나오는 message 가 진짜 원인이다
-        const r = await fetch(
-          'https://identitytoolkit.googleapis.com/v1/accounts:signInWithCustomToken?key=' + FB_WEB_KEY,
-          { method: 'POST', headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ token, returnSecureToken: true }) }
-        );
-        const fb = await r.json();
-        out.firebase상태 = r.status;
-        out.firebase응답 = r.ok ? { 성공: true, localId: fb.localId } : fb.error;
-      } catch (err) {
-        out.예외 = String(err);
-      }
-      return json(out);
-    }
-
     if (request.method !== 'POST')    return json({ error: 'POST 만 받습니다' }, 405);
 
     let body;
