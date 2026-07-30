@@ -488,10 +488,6 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
         </span>
         <button class="txtdel" id="btnLogout" hidden>로그아웃</button>
       </div>
-      <div class="row">
-        <span class="l" style="color:var(--t1); font-weight:600">동기화</span>
-        <span class="r" id="acctSync" style="color:var(--t3); font-weight:500; font-size:16px">-</span>
-      </div>
     </div>
     <div class="note" id="acctNote">기록은 구글 계정에 저장돼요. 폰을 바꾸거나 앱을 지워도
       같은 계정으로 로그인하면 그대로 이어집니다. 인터넷이 끊겨도 쓸 수 있고,
@@ -693,58 +689,38 @@ function watchCloud(){
   let first = true;
   unwatch = api.onSnapshot(userRef(), snap => {
     db = shape(snap.exists() ? snap.data() : null);
-    setSync(snap.metadata);
     if (first){ first = false; enterApp(); return; }
     renderHome();
-    renderAccount();
     // 입력 중인 화면은 건드리지 않는다. 일괄 입력은 고치던 값이 없을 때만 다시 그린다
     if (curView === 'bulk' && !changedDates().length) renderBulk();
   }, err => {
     console.warn('동기화 끊김', err);
-    setSync(null, err);
     if (first){ first = false; enterApp(); }   // 못 읽어도 앱은 열어준다
   });
 }
 
+/* 인터넷이 없을 때는 실패가 아니다 — Firestore 가 쌓아두고 나중에 올린다.
+   여기로 오는 것은 규칙에 막혔거나 값이 잘못된, 정말 저장이 안 되는 경우뿐이다.
+   그때는 화면의 숫자가 되돌아가므로 왜 그런지 알려줘야 한다. */
+function saveFailed(err){
+  console.warn('올리기 실패', err);
+  toast('저장하지 못했어요. 잠시 뒤 다시 해주세요');
+}
 /* 바뀐 날짜만 올린다 */
 function cloudWrite(patch){
   if (!fbUser || !api) return;
-  api.setDoc(userRef(), patch, { merge:true }).catch(e => console.warn('올리기 실패', e));
+  api.setDoc(userRef(), patch, { merge:true }).catch(saveFailed);
 }
 /* 통째로 바꿀 때(전체 삭제)는 merge 를 쓰면 옛 날짜가 남는다 */
 function cloudReplace(){
   if (!fbUser || !api) return;
-  api.setDoc(userRef(), { daily: db.daily, rates: db.rates })
-     .catch(e => console.warn('올리기 실패', e));
+  api.setDoc(userRef(), { daily: db.daily, rates: db.rates }).catch(saveFailed);
 }
 const gone = () => api.deleteField();
 
-/* 홈에는 아무것도 표시하지 않는다. 상태는 계정 화면에서만 보여준다.
-   주의: fromCache 는 '인터넷이 없다' 는 뜻이 아니다. 앱을 열면 Firestore 가
-   캐시본을 먼저 주고 서버본을 곧이어 주기 때문에 그 첫 순간에도 true 다.
-   그래서 바로 단정하지 않고, 서버본이 끝내 오지 않을 때만 오프라인으로 본다. */
-let syncTimer = null, lastMeta = null;
-function showSync(text){
-  const s = $('acctSync');
-  if (s) s.textContent = text || '최신 상태';
-}
-function setSync(meta, err){
-  clearTimeout(syncTimer);
-  if (meta) lastMeta = meta;
-  if (err){ showSync('동기화 안 됨'); return; }
-  if (meta && meta.hasPendingWrites){ showSync('저장 중…'); return; }
-  if (meta && meta.fromCache){
-    if (!navigator.onLine){ showSync('오프라인 — 연결되면 자동으로 올라가요'); return; }
-    showSync('');
-    syncTimer = setTimeout(() => {
-      if (lastMeta && lastMeta.fromCache) showSync('오프라인 — 연결되면 자동으로 올라가요');
-    }, 5000);
-    return;
-  }
-  showSync('');
-}
-addEventListener('offline', () => { clearTimeout(syncTimer); showSync('오프라인 — 연결되면 자동으로 올라가요'); });
-addEventListener('online',  () => { clearTimeout(syncTimer); showSync(''); });
+/* 동기화 상태는 화면에 표시하지 않는다. 사용자가 그걸 보고 할 수 있는 일이 없고,
+   저장됐다는 확인은 저장 직후의 토스트와 목록의 숫자가 이미 해준다.
+   대신 정말 실패했을 때만 알린다 (아래 saveFailed). */
 
 function renderAccount(){
   const mail = $('acctMail');
