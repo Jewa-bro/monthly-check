@@ -535,6 +535,9 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
 <script>
 const pad = n => String(n).padStart(2,'0');
 const fmt = n => (n||0).toLocaleString('ko-KR');
+/* 입력칸은 세 자리 콤마를 붙여 보여준다. 값을 읽을 때는 숫자만 뽑아 쓴다 */
+const digits = v => String(v ?? '').replace(/[^\d]/g, '');
+const comma  = v => { const d = digits(v).replace(/^0+(?=\d)/, ''); return d ? Number(d).toLocaleString('ko-KR') : ''; };
 const DOW = ['일','월','화','수','목','금','토'];
 const $ = id => document.getElementById(id);
 const ico = (id, s) => `<svg width="${s}" height="${s}"><use href="#i-${id}"/></svg>`;
@@ -843,15 +846,15 @@ function showPad(on){
 function padPress(k){
   const el = padTarget;
   if (!el) return;
-  let v = el.value;
+  let d = digits(el.value);                    // 콤마를 걷어내고 숫자만 다룬다
   if (k === 'del'){
-    v = v.slice(0, -1);
+    d = d.slice(0, -1);
     padFresh = false;
   } else {
-    if (padFresh){ v = ''; padFresh = false; }
-    if (v.length + k.length <= 7) v = (v === '0' ? '' : v) + k;
+    if (padFresh){ d = ''; padFresh = false; }
+    if (d.length + k.length <= 7) d = (d === '0' ? '' : d) + k;
   }
-  el.value = v.replace(/^0+(?=\d)/, '');
+  el.value = comma(d);
   el.dispatchEvent(new Event('input', { bubbles:true }));
 }
 const depthNow = () => (history.state && history.state.depth) || 0;
@@ -962,7 +965,7 @@ function renderHome(){
 function setEntry(d, mode){
   editDate = d; editMode = mode;
   const v = db.daily[d];
-  $('count').value = v === undefined ? '' : v;
+  $('count').value = v === undefined ? '' : comma(v);
   show('entry');
   renderEntry();
   setTimeout(() => $('count').focus(), 60);
@@ -988,7 +991,7 @@ function renderEntry(){
   $('btnBulk').hidden = isEdit;   // 여러 날 입력은 '기록하기'에서만
 
   sizeNum($('count'), $('numBox'));
-  const raw = $('count').value.trim(), n = Number(raw);
+  const raw = digits($('count').value), n = Number(raw);
   const ok = raw !== '' && isFinite(n) && n >= 0;
   $('ctaSave').disabled = !ok;
   $('ctaSave').textContent = isEdit ? '수정 저장하기' : '저장하기';
@@ -996,7 +999,10 @@ function renderEntry(){
   $('eHelp').innerHTML = ok && rate ? `이 날 <b>${fmt(Math.floor(n)*rate)}원</b>` : '';
 }
 function sizeNum(input, box){
-  input.style.width = Math.max(1, (input.value||'').replace('-','').length) + 'ch';
+  // 콤마는 숫자보다 좁으므로 덜 세야 가운데 정렬이 어긋나지 않는다
+  const v = input.value || '';
+  const 폭 = digits(v).length + (v.match(/,/g) || []).length * 0.4;
+  input.style.width = Math.max(1, 폭) + 'ch';
   box.classList.toggle('empty', !input.value);
 }
 
@@ -1024,7 +1030,7 @@ function renderBulk(){
     const el = document.createElement('div');
     el.className = 'brow' + (isChanged(d) ? ' chg' : '');
     el.innerHTML = `<span class="bd">${mdDow(d)}${d===today?'<span class="tag">오늘</span>':''}</span>` +
-      `<input type="text" inputmode="none" readonly autocomplete="off" placeholder="-" data-d="${d}" value="${cur}">` +
+      `<input type="text" inputmode="none" readonly autocomplete="off" placeholder="-" data-d="${d}" value="${comma(cur)}">` +
       `<span class="bu">건</span>`;
     box.appendChild(el);
   }
@@ -1033,7 +1039,7 @@ function renderBulk(){
 function storedStr(d){ return db.daily[d] === undefined ? '' : String(db.daily[d]); }
 function isChanged(d){
   if (bulkDraft[d] === undefined) return false;
-  const a = bulkDraft[d].trim(), b = storedStr(d);
+  const a = digits(bulkDraft[d]), b = storedStr(d);
   if (a === '' && b === '') return false;
   return a === '' ? true : String(Math.max(0, Math.floor(Number(a)))) !== b;
 }
@@ -1042,7 +1048,7 @@ function updateBulkSummary(){
   // 합계는 저장 전 입력값을 반영해서 보여준다
   let total = 0;
   for (const d of cycleDates(bulkKey)){
-    const raw = bulkDraft[d] !== undefined ? bulkDraft[d].trim() : storedStr(d);
+    const raw = bulkDraft[d] !== undefined ? digits(bulkDraft[d]) : storedStr(d);
     if (raw === '') continue;
     const n = Math.floor(Number(raw));
     if (isFinite(n)) total += Math.max(0, n);
@@ -1066,7 +1072,7 @@ function renderPrice(){
   $('rateDateLabel').textContent = rateDate === FIRST ? '처음부터' : `${mdDow(rateDate)}부터`;
   $('pQS').textContent = rateDate === FIRST ? '모든 기록에 적용돼요' : '이 날부터 적용돼요';
   sizeNum($('price'), $('pBox'));
-  const raw = $('price').value.trim(), n = Math.floor(Number(raw));
+  const raw = digits($('price').value), n = Math.floor(Number(raw));
   const ok = raw !== '' && isFinite(n) && n >= 0;
   $('ctaPrice').disabled = !ok;
 
@@ -1234,7 +1240,7 @@ window.addEventListener('popstate', e => {
     if (editDate !== s.editDate || editMode !== s.editMode){
       editDate = s.editDate; editMode = s.editMode;
       const val = db.daily[editDate];
-      $('count').value = val === undefined ? '' : val;
+      $('count').value = val === undefined ? '' : comma(val);
     }
     show('entry'); renderEntry();
   } else if (v === 'bulk'){
@@ -1284,7 +1290,7 @@ $('count').oninput = renderEntry;
 $('dateField').onclick = () => { if (editMode !== 'edit') openSheet('date'); };
 
 $('ctaSave').onclick = () => {
-  const n = Math.max(0, Math.floor(Number($('count').value)));
+  const n = Math.max(0, Math.floor(Number(digits($('count').value))));
   const isEdit = editMode === 'edit';
   db.daily[editDate] = n;
   cloudWrite({ daily: { [editDate]: n } });
@@ -1336,7 +1342,7 @@ $('ctaBulk').onclick = () => {
   if (!ds.length) return;
   const patch = {};
   for (const d of ds){
-    const raw = bulkDraft[d].trim();
+    const raw = digits(bulkDraft[d]);
     if (raw === ''){ delete db.daily[d]; patch[d] = gone(); }
     else { db.daily[d] = Math.max(0, Math.floor(Number(raw))); patch[d] = db.daily[d]; }
   }
@@ -1349,7 +1355,7 @@ $('ctaBulk').onclick = () => {
 $('price').oninput = renderPrice;
 $('rateDateField').onclick = () => openSheet('date-rate');
 $('ctaPrice').onclick = () => {
-  const n = Math.max(0, Math.floor(Number($('price').value)));
+  const n = Math.max(0, Math.floor(Number(digits($('price').value))));
   db.rates[rateDate] = n;
   cloudWrite({ rates: { [rateDate]: n } });
   goHome();
