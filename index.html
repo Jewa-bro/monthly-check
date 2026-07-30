@@ -489,7 +489,7 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
         <button class="txtdel" id="btnLogout" hidden>로그아웃</button>
       </div>
     </div>
-    <div class="note" id="acctNote">기록은 구글 계정에 저장돼요. 폰을 바꾸거나 앱을 지워도
+    <div class="note" id="acctNote">기록은 카카오 계정에 저장돼요. 폰을 바꾸거나 앱을 지워도
       같은 계정으로 로그인하면 그대로 이어집니다. 인터넷이 끊겨도 쓸 수 있고,
       연결되면 자동으로 올라갑니다.</div>
     <button class="danger" id="btnClear">전체 기록 삭제</button>
@@ -1413,6 +1413,19 @@ startCloud();          // 로그인이 확인되면 enterApp() 이 화면을 연
 
 if ('serviceWorker' in navigator && location.protocol !== 'file:'){
   window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(() => {}));
+
+  /* 새 버전이 준비되면 스스로 새로 불러온다.
+     이게 없으면 앱을 한 번 더 열어야 새 화면이 나와서, 고친 것이 반영되지 않은 것처럼 보인다.
+     단, 쓰던 중에 갑자기 새로 뜨면 놀라니 '막 열었을 때' 만 한다. */
+  const startedAt = Date.now();
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (reloading) return;
+    const busy = modalOn || sheetOn || curView !== 'home';
+    if (busy || Date.now() - startedAt > 10000) return;   // 다음에 열 때 적용된다
+    reloading = true;
+    location.reload();
+  });
 }
 
 /* 기기 용량이 부족할 때 브라우저가 오프라인 캐시를 임의로 지우지 않도록 요청한다.
