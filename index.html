@@ -283,6 +283,29 @@ button{font:inherit; letter-spacing:inherit; cursor:pointer}
 }
 .seg button.on{background:var(--blue); color:#fff}
 
+/* 달력 — 휴무는 정산월(26~25일)이 아니라 보통 달력(1일~말일)으로 본다 */
+.calhead{display:grid; grid-template-columns:repeat(7,1fr); text-align:center;
+  font-size:12px; font-weight:600; color:var(--t3); padding:2px 0 8px}
+.calgrid{display:grid; grid-template-columns:repeat(7,1fr); row-gap:2px}
+.calcell{
+  min-height:58px; border:0; background:none; border-radius:10px; padding:5px 1px 3px;
+  display:flex; flex-direction:column; align-items:center; gap:2px; font:inherit;
+}
+.calcell:active{background:var(--press)}
+.calcell .dn{
+  width:24px; height:24px; line-height:24px; text-align:center;
+  font-size:13px; font-weight:700; color:var(--t1); border-radius:50%;
+}
+.calcell.out .dn{color:var(--t4) !important}
+.calcell.today .dn{background:var(--blue); color:#fff !important}
+.calcell .nm{
+  font-size:10.5px; line-height:1.25; font-weight:600; color:var(--blue);
+  max-width:100%; overflow:hidden; word-break:keep-all;
+}
+.calcell.out .nm{color:var(--t4)}
+/* 이름 고르기처럼 여러 번 누르는 시트의 바닥 확인 버튼 */
+.sfoot{padding:10px 0 6px}
+
 /* ───── 확인창 ─────
    기기 기본 confirm/alert 은 모양을 정할 수 없고 앱 밖의 것처럼 보인다.
    left:50% 대신 left/right + margin:auto 로 가운데를 잡는다(폭이 반으로 잘리지 않게). */
@@ -389,6 +412,9 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
         <span id="mName">-</span>
         <span class="car"><svg width="18" height="18"><use href="#i-caret"/></svg></span>
       </button>
+      <!-- 다른 섹션으로 가는 문 — 실적 내용 사이가 아니라 상단 바에 둔다.
+           members 에 등록된 회원에게만 보인다 -->
+      <button class="pill sm" id="btnRest" hidden style="margin-left:auto; color:var(--blue)">휴무표</button>
     </div>
 
     <div class="hero">
@@ -404,11 +430,6 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
       <span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span>
     </button>
 
-    <!-- DB(members)에 등록된 회원에게만 보인다 -->
-    <button class="field" id="btnRest" hidden>
-      <span class="fl">휴무표</span>
-      <span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span>
-    </button>
 
     <div class="card">
       <div class="head"><span id="listHead">기록</span></div>
@@ -527,19 +548,31 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
         <span class="car"><svg width="16" height="16"><use href="#i-caret"/></svg></span>
       </button>
     </div>
-    <div class="bar" style="min-height:48px">
+    <div class="bar" style="min-height:48px; gap:8px">
       <button class="pill sm" id="rWeekPill">
         <span id="rWeekLabel">-</span>
         <span class="car"><svg width="16" height="16"><use href="#i-caret"/></svg></span>
       </button>
+      <button class="pill sm" id="rMonthPill" hidden>
+        <span id="rMonthLabel">-</span>
+        <span class="car"><svg width="16" height="16"><use href="#i-caret"/></svg></span>
+      </button>
+      <div class="seg" id="restSeg" style="margin:0 0 0 auto; flex:none; width:132px">
+        <button data-m="week" class="on">주별</button>
+        <button data-m="cal">달력</button>
+      </div>
     </div>
-    <div class="card"><div id="restList"></div></div>
+    <div class="card" id="restWeekCard"><div id="restList"></div></div>
+    <div class="card" id="restCalCard" hidden style="padding:14px 10px">
+      <div class="calhead" id="calHead"></div>
+      <div class="calgrid" id="calGrid"></div>
+    </div>
     <button class="field" id="btnTeamManage" hidden>
       <span class="fl">조원 관리</span>
       <span class="fv" id="teamCount"></span>
       <span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span>
     </button>
-    <div class="cta"><div><button class="btn" id="ctaRest">이미지로 공유하기</button></div></div>
+    <div class="cta" id="restCtaWrap"><div><button class="btn" id="ctaRest">이미지로 공유하기</button></div></div>
   </div>
 
   <!-- ─────────── 조원 관리 (조장) ─────────── -->
@@ -587,6 +620,7 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
     <button class="x" id="sClose" aria-label="닫기"><svg width="22" height="22"><use href="#i-close"/></svg></button>
   </div>
   <div class="slist" id="sList"></div>
+  <div class="sfoot" id="sFoot" hidden><button class="btn" id="sDone">확인</button></div>
 </div>
 
 <!-- 확인창 — 기기 기본 confirm/alert 대신 쓴다 -->
@@ -822,11 +856,18 @@ function renderAccount(){
 /* ══════════ 휴무표 ══════════
    members/{uid} 에 등록된 회원에게만 보인다. 역할: admin / leader / user.
    조(teams/{조이름}) 에는 조장이 등록한 이름 목록이, 주(teams/{조}/weeks/{일요일날짜})
-   에는 요일별(d0=일 ~ d6=토) 휴무 이름이 담긴다. 이름은 계정과 묶지 않는다. */
+   에는 요일별(d0=일 ~ d6=토) 휴무 이름이 담긴다. 이름은 계정과 묶지 않는다.
+
+   보기는 두 가지다. 주별(장부와 같은 꼴)과 달력.
+   달력은 정산월(26~25일)이 아니라 보통 달력(1일~말일)이다 — 휴무는 정산과
+   무관한 도메인이라, 돈 계산의 틀을 여기에 씌우면 오히려 헷갈린다. */
 let member = null;                       // 내 members 문서 — 없으면 기능이 안 보인다
 let restTeam = null, restWeek = null, sheetDay = 0;
-let unTeam = null, unWeek = null;
+let restMode = 'week';                   // 'week' | 'cal'
+let calMonth = null;                     // 달력이 보여주는 달 'YYYY-MM'
+let unTeam = null, unWeek = null, unMonth = null;
 let teamDoc = { names: [] }, weekDoc = { days: {} };
+let monthWeeks = {};                     // 달력용: {일요일날짜: days객체}
 let adminRole = 'user', memberCache = [];
 
 const esc = v => String(v).replace(/[&<>"']/g, c =>
@@ -834,9 +875,24 @@ const esc = v => String(v).replace(/[&<>"']/g, c =>
 const sundayOf  = s => addDays(s, -dowOf(s));
 const mdShort   = s => `${Number(s.slice(5,7))}/${Number(s.slice(8,10))}`;
 const weekLabel = ws => `${mdText(ws)} ~ ${mdText(addDays(ws,6))}`;
+const monthTitle = m => `${m.slice(0,4)}년 ${Number(m.slice(5,7))}월`;
 const roleName  = r => r === 'admin' ? '관리자' : r === 'leader' ? '조장' : '일반';
 const canManage = () => !!(member && (member.role === 'admin'
                         || (member.role === 'leader' && member.team === restTeam)));
+/* 이 달(1일~말일)을 덮는 주들의 일요일 날짜 */
+function monthSundays(m){
+  const [y, mm] = m.split('-').map(Number);
+  const last = `${m}-${pad(new Date(y, mm, 0).getDate())}`;
+  const out = [];
+  let s = sundayOf(`${m}-01`);
+  while (s <= last){ out.push(s); s = addDays(s, 7); }
+  return out;
+}
+function shiftMonth(m, delta){
+  let [y, mm] = m.split('-').map(Number);
+  mm += delta; y += Math.floor((mm-1)/12); mm = ((mm-1)%12+12)%12 + 1;
+  return `${y}-${pad(mm)}`;
+}
 
 const teamRef = () => api.doc(fbStore, 'teams', restTeam);
 const weekRef = () => api.doc(fbStore, 'teams', restTeam, 'weeks', restWeek);
@@ -853,10 +909,14 @@ async function checkMember(uid){
 function stopRest(){
   if (unTeam){ unTeam(); unTeam = null; }
   if (unWeek){ unWeek(); unWeek = null; }
+  if (unMonth){ unMonth(); unMonth = null; }
 }
-function subscribeRest(){
-  stopRest();
-  teamDoc = { names: [] }; weekDoc = { days: {} };
+/* 조 명단 + 지금 보고 있는 주를 구독한다. seedDays 를 주면 응답 전까지 그걸 보여준다 */
+function subscribeRest(seedDays){
+  if (unTeam) unTeam();
+  if (unWeek) unWeek();
+  teamDoc = { names: [] };
+  weekDoc = { days: seedDays || {} };
   unTeam = api.onSnapshot(teamRef(), s => {
     teamDoc = s.exists() ? s.data() : { names: [] };
     if (curView === 'rest') renderRest();
@@ -868,6 +928,20 @@ function subscribeRest(){
     if (curView === 'rest') renderRest();
     if (sheetOn && sheetMode === 'rest-day') renderSheet();
   }, e => console.warn('주 읽기 실패', e));
+}
+/* 달력용: 이 달을 덮는 주 문서들을 한꺼번에 구독한다 */
+function subscribeMonth(){
+  if (unMonth){ unMonth(); unMonth = null; }
+  monthWeeks = {};
+  const q = api.query(
+    api.collection(fbStore, 'teams', restTeam, 'weeks'),
+    api.where(api.documentId(), 'in', monthSundays(calMonth))
+  );
+  unMonth = api.onSnapshot(q, qs => {
+    monthWeeks = {};
+    qs.docs.forEach(d => { monthWeeks[d.id] = (d.data() || {}).days || {}; });
+    if (curView === 'rest' && restMode === 'cal') renderRest();
+  }, e => console.warn('달 읽기 실패', e));
 }
 
 async function openRest(){
@@ -881,17 +955,32 @@ async function openRest(){
     }catch(e){}
   }
   if (!restTeam){ tell('아직 조가 없어요', '회원 관리에서 조장을 먼저 등록해 주세요.'); return; }
-  if (!restWeek) restWeek = sundayOf(todayStr());
+  // 들어올 때는 항상 지금 — 지난번에 보던 주가 남아 있으면 딴 주를 이번 주로 착각한다
+  restWeek = sundayOf(todayStr());
+  calMonth = todayStr().slice(0, 7);
   subscribeRest();
+  if (restMode === 'cal') subscribeMonth();
   show('rest'); renderRest(); pushNav();
 }
 
+/* 주별/달력 공통 머리 + 모드에 맞는 본문 */
 function renderRest(){
   $('rTeamName').textContent = restTeam;
-  $('rWeekLabel').textContent = weekLabel(restWeek);
   $('rTeamPill').hidden = !(member && member.role === 'admin');
   $('btnTeamManage').hidden = !canManage();
   $('teamCount').textContent = (teamDoc.names || []).length ? `${teamDoc.names.length}명` : '';
+  [...$('restSeg').children].forEach(b => b.classList.toggle('on', b.dataset.m === restMode));
+  const isWeek = restMode === 'week';
+  $('rWeekPill').hidden = !isWeek;
+  $('rMonthPill').hidden = isWeek;
+  $('restWeekCard').hidden = !isWeek;
+  $('restCalCard').hidden = isWeek;
+  $('restCtaWrap').hidden = !isWeek;      // 이미지 공유는 장부 꼴(주별)로만
+  if (isWeek) renderWeekList(); else renderCal();
+}
+
+function renderWeekList(){
+  $('rWeekLabel').textContent = weekLabel(restWeek);
   const today = todayStr();
   const box = $('restList');
   box.innerHTML = '';
@@ -910,14 +999,51 @@ function renderRest(){
   }
 }
 
+function renderCal(){
+  $('rMonthLabel').textContent = monthTitle(calMonth);
+  const today = todayStr();
+  const head = $('calHead');
+  head.innerHTML = DOW.map((d,i) =>
+    `<span style="color:${i===0 ? 'var(--red)' : i===6 ? 'var(--blue)' : 'var(--t3)'}">${d}</span>`).join('');
+  const grid = $('calGrid');
+  grid.innerHTML = '';
+  for (const sun of monthSundays(calMonth)){
+    for (let i = 0; i < 7; i++){
+      const d = addDays(sun, i);
+      const inMonth = d.slice(0, 7) === calMonth;
+      const names = (monthWeeks[sun] || {})['d'+i] || [];
+      const b = document.createElement('button');
+      b.className = 'calcell' + (inMonth ? '' : ' out') + (d === today ? ' today' : '');
+      b.innerHTML =
+        `<span class="dn" style="${inMonth && i===0 ? 'color:var(--red)' : inMonth && i===6 ? 'color:var(--blue)' : ''}">${Number(d.slice(8,10))}</span>` +
+        `<span class="nm">${esc(names.join(' '))}</span>`;
+      b.onclick = () => {
+        // 이 날이 속한 주로 갈아탄 뒤 이름 시트를 연다.
+        // 달력이 이미 들고 있는 값을 먼저 보여줘 깜빡임을 없앤다
+        if (restWeek !== sun){
+          restWeek = sun;
+          subscribeRest(JSON.parse(JSON.stringify(monthWeeks[sun] || {})));
+          replaceNav();   // 시트를 닫고 돌아와도 이 주가 유지되게
+        }
+        sheetDay = i;
+        openSheet('rest-day');
+      };
+      grid.appendChild(b);
+    }
+  }
+}
+
 /* 요일에 이름을 넣고 뺀다. 스냅샷이 오기 전에 화면 먼저 바꾼다(즉시 반응) */
 function toggleRest(i, name, on){
   api.setDoc(weekRef(), { days: { ['d'+i]: on ? api.arrayUnion(name) : api.arrayRemove(name) } }, { merge:true })
      .catch(saveFailed);
-  const days = weekDoc.days || (weekDoc.days = {});
-  const arr = days['d'+i] || (days['d'+i] = []);
-  if (on && !arr.includes(name)) arr.push(name);
-  if (!on) days['d'+i] = arr.filter(n => n !== name);
+  const put = days => {
+    const arr = days['d'+i] || (days['d'+i] = []);
+    if (on && !arr.includes(name)) arr.push(name);
+    if (!on) days['d'+i] = arr.filter(n => n !== name);
+  };
+  put(weekDoc.days || (weekDoc.days = {}));
+  put(monthWeeks[restWeek] || (monthWeeks[restWeek] = {}));
   renderRest();
   if (sheetOn && sheetMode === 'rest-day') renderSheet();
 }
@@ -1069,7 +1195,6 @@ async function shareRest(){
   }
 }
 
-
 /* ── 날짜 ── */
 function todayStr(){
   const d = new Date();
@@ -1202,7 +1327,7 @@ function padPress(k){
 const depthNow = () => (history.state && history.state.depth) || 0;
 const snap = depth => ({ depth, view:curView, sheet: sheetOn ? sheetMode : null,
                          modal: modalOn, editDate, editMode, bulkKey, rateDate,
-                         restTeam, restWeek, sheetDay });
+                         restTeam, restWeek, sheetDay, restMode, calMonth });
 const pushNav    = () => history.pushState(snap(depthNow()+1), '');
 const replaceNav = () => history.replaceState(snap(depthNow()), '');
 /* 저장을 마쳤으면 홈까지 한 번에 되돌린다 (뒤로가기로 입력 화면에 되돌아가지 않게) */
@@ -1463,6 +1588,8 @@ function closeSheetThen(fn){
   history.back();
 }
 function renderSheet(){
+  $('sFoot').hidden = sheetMode !== 'rest-day';
+  $('sClose').hidden = sheetMode === 'rest-day';
   const today = todayStr();
   const box = $('sList');
   box.innerHTML = '';
@@ -1543,6 +1670,18 @@ function renderSheet(){
       b.onclick = () => toggleRest(sheetDay, n, !mine);
       box.appendChild(b);
     }
+  } else if (sheetMode === 'rest-month'){
+    $('sTitle').textContent = '달 선택';
+    const now = todayStr().slice(0,7);
+    for (let off = -2; off <= 4; off++){
+      const m = shiftMonth(now, off);
+      const b = document.createElement('button');
+      b.className = 'row' + (m === calMonth ? ' sel' : '');
+      b.innerHTML = `<span class="l">${monthTitle(m)}${m === now ? '<span class="tag">이번 달</span>' : ''}</span>` +
+        `<span class="c">${m === calMonth ? ico('check',18) : ''}</span>`;
+      b.onclick = () => closeSheetThen(() => { calMonth = m; subscribeMonth(); renderRest(); replaceNav(); });
+      box.appendChild(b);
+    }
   } else if (sheetMode === 'rest-team'){
     $('sTitle').textContent = '조 선택';
     box.innerHTML = `<div class="blank">불러오는 중…</div>`;
@@ -1603,6 +1742,16 @@ $('btnMore').onclick = () => { renderAccount(); show('more'); pushNav(); };
 /* ── 휴무표 ── */
 $('btnRest').onclick = openRest;
 $('rWeekPill').onclick = () => openSheet('rest-week');
+$('rMonthPill').onclick = () => openSheet('rest-month');
+$('restSeg').onclick = e => {
+  const b = e.target.closest('button[data-m]');
+  if (!b || b.dataset.m === restMode) return;
+  restMode = b.dataset.m;
+  if (restMode === 'cal'){ calMonth = calMonth || todayStr().slice(0,7); subscribeMonth(); }
+  renderRest();
+  replaceNav();   // 시트를 닫고 돌아와도 이 모드가 유지되게
+};
+$('sDone').onclick = () => history.back();
 $('rTeamPill').onclick = () => openSheet('rest-team');
 $('btnTeamManage').onclick = openTeam;
 $('ctaRest').onclick = shareRest;
@@ -1636,6 +1785,8 @@ window.addEventListener('popstate', e => {
   const s = e.state || { view:'home', sheet:null };
   if (s.restTeam) restTeam = s.restTeam;
   if (s.restWeek) restWeek = s.restWeek;
+  if (s.restMode) restMode = s.restMode;
+  if (s.calMonth) calMonth = s.calMonth;
   if (s.sheetDay !== undefined && s.sheetDay !== null) sheetDay = s.sheetDay;
 
   // 확인창이 열려 있었는데 돌아온 자리에 없으면 닫고 결과를 넘긴다(뒤로가기 = 취소)
@@ -1672,6 +1823,7 @@ window.addEventListener('popstate', e => {
     show('more');
   } else if (v === 'rest'){
     if (member && !unTeam) subscribeRest();
+    if (member && restMode === 'cal' && !unMonth && restTeam && calMonth) subscribeMonth();
     show('rest'); renderRest();
   } else if (v === 'team'){
     show('team'); renderTeam();
