@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// Firebase 콘솔 > Firestore Database > 규칙 탭에 이 내용을 붙여넣고 '게시'.
+// 휴무표를 배포할 때 함께 적용해야 한다 — 규칙이 없으면 휴무표가 전부 거부된다.
+// 기존 실적(users/{uid})은 그대로라 먼저 게시해도 안전하다.
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function me() {
+      return get(/databases/$(database)/documents/members/$(request.auth.uid)).data;
+    }
+    function isMember() {
+      return request.auth != null
+          && exists(/databases/$(database)/documents/members/$(request.auth.uid));
+    }
+    function isAdmin() {
+      return isMember() && me().role == 'admin';
+    }
+
+    // 실적 — 본인 것만
+    match /users/{uid}/{doc=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // 회원 명단 — 본인 확인은 누구나, 목록·수정은 관리자만
+    match /members/{uid} {
+      allow get: if request.auth != null && request.auth.uid == uid;
+      allow read, write: if isAdmin();
+    }
+
+    // 조 — 같은 조 회원만 보고, 조원 명단은 그 조 조장(또는 관리자)만 고친다
+    match /teams/{team} {
+      allow read: if isAdmin() || (isMember() && me().team == team);
+      allow write: if isAdmin()
+                || (isMember() && me().role == 'leader' && me().team == team);
+
+      // 주간 휴무 — 같은 조 회원이면 누구나 적고 지운다
+      match /weeks/{week} {
+        allow read, write: if isAdmin() || (isMember() && me().team == team);
+      }
+    }
+  }
+}

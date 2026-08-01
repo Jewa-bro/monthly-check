@@ -264,6 +264,25 @@ button{font:inherit; letter-spacing:inherit; cursor:pointer}
 .gbtn .glogo{display:flex}
 .gretry{display:block; margin:16px auto 0; font-size:15px; padding:8px}
 
+/* ───── 휴무표 ───── */
+.namerow{display:flex; gap:8px; margin:0 0 14px}
+.namerow input{
+  flex:1; min-width:0; height:52px; padding:0 16px; border:1.5px solid var(--press);
+  border-radius:14px; font:inherit; font-size:17px; background:var(--white); color:var(--t1);
+}
+.namerow input:focus{border-color:var(--blue); outline:none}
+.namerow button{
+  flex:none; width:84px; border:0; border-radius:14px; background:var(--blue);
+  color:#fff; font:inherit; font-size:16px; font-weight:700;
+}
+.namerow button:active{background:var(--blue-d)}
+.seg{display:flex; gap:6px; margin:0 0 14px}
+.seg button{
+  flex:1; height:46px; border:0; border-radius:12px; background:var(--press);
+  color:var(--t2); font:inherit; font-size:15px; font-weight:600;
+}
+.seg button.on{background:var(--blue); color:#fff}
+
 /* ───── 확인창 ─────
    기기 기본 confirm/alert 은 모양을 정할 수 없고 앱 밖의 것처럼 보인다.
    left:50% 대신 left/right + margin:auto 로 가운데를 잡는다(폭이 반으로 잘리지 않게). */
@@ -385,6 +404,12 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
       <span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span>
     </button>
 
+    <!-- DB(members)에 등록된 회원에게만 보인다 -->
+    <button class="field" id="btnRest" hidden>
+      <span class="fl">휴무표</span>
+      <span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span>
+    </button>
+
     <div class="card">
       <div class="head"><span id="listHead">기록</span></div>
       <div id="list"></div>
@@ -485,7 +510,70 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
         <button class="txtdel" id="btnLogout" hidden>로그아웃</button>
       </div>
     </div>
+
+    <div class="card" id="adminCard" hidden>
+      <button class="row" id="btnAdmin"><span class="l" style="color:var(--t1); font-weight:600">회원 관리</span><span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span></button>
+    </div>
     <button class="danger" id="btnClear">전체 기록 삭제</button>
+  </div>
+
+  <!-- ─────────── 휴무표 ─────────── -->
+  <div class="view" id="v-rest">
+    <div class="bar">
+      <button class="back" data-back aria-label="뒤로"><svg width="24" height="24"><use href="#i-back"/></svg></button>
+      <div class="htitle">휴무표</div>
+      <button class="pill sm" id="rTeamPill" hidden style="margin-left:auto">
+        <span id="rTeamName">-</span>
+        <span class="car"><svg width="16" height="16"><use href="#i-caret"/></svg></span>
+      </button>
+    </div>
+    <div class="bar" style="min-height:48px">
+      <button class="pill sm" id="rWeekPill">
+        <span id="rWeekLabel">-</span>
+        <span class="car"><svg width="16" height="16"><use href="#i-caret"/></svg></span>
+      </button>
+    </div>
+    <div class="card"><div id="restList"></div></div>
+    <button class="field" id="btnTeamManage" hidden>
+      <span class="fl">조원 관리</span>
+      <span class="fv" id="teamCount"></span>
+      <span class="c"><svg width="20" height="20"><use href="#i-next"/></svg></span>
+    </button>
+    <div class="cta"><div><button class="btn" id="ctaRest">이미지로 공유하기</button></div></div>
+  </div>
+
+  <!-- ─────────── 조원 관리 (조장) ─────────── -->
+  <div class="view" id="v-team">
+    <div class="bar">
+      <button class="back" data-back aria-label="뒤로"><svg width="24" height="24"><use href="#i-back"/></svg></button>
+      <div class="htitle" id="tTitle">조원 관리</div>
+    </div>
+    <div class="namerow">
+      <input id="newName" type="text" maxlength="10" placeholder="이름" autocomplete="off">
+      <button id="btnAddName">추가</button>
+    </div>
+    <div class="card"><div id="teamList"></div></div>
+  </div>
+
+  <!-- ─────────── 회원 관리 (관리자) ─────────── -->
+  <div class="view" id="v-admin">
+    <div class="bar">
+      <button class="back" data-back aria-label="뒤로"><svg width="24" height="24"><use href="#i-back"/></svg></button>
+      <div class="htitle">회원 관리</div>
+    </div>
+    <div class="namerow">
+      <input id="newMemberNum" type="text" inputmode="numeric" placeholder="카카오 번호 (계정 화면의 숫자)" autocomplete="off">
+    </div>
+    <div class="namerow">
+      <input id="newMemberTeam" type="text" maxlength="10" placeholder="조 이름 (예: W1)" autocomplete="off">
+      <button id="btnAddMember">추가</button>
+    </div>
+    <div class="seg" id="roleSeg">
+      <button data-role="user" class="on">일반</button>
+      <button data-role="leader">조장</button>
+      <button data-role="admin">관리자</button>
+    </div>
+    <div class="card"><div id="memberList"></div></div>
   </div>
 
 </div>
@@ -673,11 +761,14 @@ function onUser(u){
   if (unwatch){ unwatch(); unwatch = null; }
   if (!u){
     db = { daily:{}, rates:{} };      // 남의 기록이 화면에 남지 않게 비운다
+    member = null; restTeam = null; stopRest();
+    $('btnRest').hidden = true; $('adminCard').hidden = true;
     if (!exchanging) gate('signin');  // 토큰 바꾸는 중이면 '잠시만요' 를 유지한다
     return;
   }
   gate('wait');
   watchCloud();                       // 첫 응답이 오면 문을 닫는다
+  checkMember(u.uid);                 // 휴무표 회원인지 — 아니면 그 버튼이 안 보일 뿐
 }
 
 /* 서버가 유일한 원본. 다른 기기에서 지운 것도 따라 지워진다 */
@@ -727,6 +818,257 @@ function renderAccount(){
     : '-';
   $('btnLogout').hidden = !fbUser;
 }
+
+/* ══════════ 휴무표 ══════════
+   members/{uid} 에 등록된 회원에게만 보인다. 역할: admin / leader / user.
+   조(teams/{조이름}) 에는 조장이 등록한 이름 목록이, 주(teams/{조}/weeks/{일요일날짜})
+   에는 요일별(d0=일 ~ d6=토) 휴무 이름이 담긴다. 이름은 계정과 묶지 않는다. */
+let member = null;                       // 내 members 문서 — 없으면 기능이 안 보인다
+let restTeam = null, restWeek = null, sheetDay = 0;
+let unTeam = null, unWeek = null;
+let teamDoc = { names: [] }, weekDoc = { days: {} };
+let adminRole = 'user', memberCache = [];
+
+const esc = v => String(v).replace(/[&<>"']/g, c =>
+  ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+const sundayOf  = s => addDays(s, -dowOf(s));
+const mdShort   = s => `${Number(s.slice(5,7))}/${Number(s.slice(8,10))}`;
+const weekLabel = ws => `${mdText(ws)} ~ ${mdText(addDays(ws,6))}`;
+const roleName  = r => r === 'admin' ? '관리자' : r === 'leader' ? '조장' : '일반';
+const canManage = () => !!(member && (member.role === 'admin'
+                        || (member.role === 'leader' && member.team === restTeam)));
+
+const teamRef = () => api.doc(fbStore, 'teams', restTeam);
+const weekRef = () => api.doc(fbStore, 'teams', restTeam, 'weeks', restWeek);
+
+async function checkMember(uid){
+  try{
+    const snap = await api.getDoc(api.doc(fbStore, 'members', uid));
+    member = snap.exists() ? snap.data() : null;
+  }catch(e){ member = null; }
+  $('btnRest').hidden = !member;
+  $('adminCard').hidden = !(member && member.role === 'admin');
+}
+
+function stopRest(){
+  if (unTeam){ unTeam(); unTeam = null; }
+  if (unWeek){ unWeek(); unWeek = null; }
+}
+function subscribeRest(){
+  stopRest();
+  teamDoc = { names: [] }; weekDoc = { days: {} };
+  unTeam = api.onSnapshot(teamRef(), s => {
+    teamDoc = s.exists() ? s.data() : { names: [] };
+    if (curView === 'rest') renderRest();
+    if (curView === 'team') renderTeam();
+    if (sheetOn && sheetMode === 'rest-day') renderSheet();
+  }, e => console.warn('조 읽기 실패', e));
+  unWeek = api.onSnapshot(weekRef(), s => {
+    weekDoc = s.exists() ? s.data() : { days: {} };
+    if (curView === 'rest') renderRest();
+    if (sheetOn && sheetMode === 'rest-day') renderSheet();
+  }, e => console.warn('주 읽기 실패', e));
+}
+
+async function openRest(){
+  if (!member) return;
+  if (!restTeam) restTeam = member.team || null;
+  if (!restTeam && member.role === 'admin'){
+    // 관리자는 조가 없을 수 있다 — 등록된 회원들의 조 중 첫 번째를 보여준다
+    try{
+      const qs = await api.getDocs(api.collection(fbStore, 'members'));
+      restTeam = [...new Set(qs.docs.map(d => d.data().team).filter(Boolean))].sort()[0] || null;
+    }catch(e){}
+  }
+  if (!restTeam){ tell('아직 조가 없어요', '회원 관리에서 조장을 먼저 등록해 주세요.'); return; }
+  if (!restWeek) restWeek = sundayOf(todayStr());
+  subscribeRest();
+  show('rest'); renderRest(); pushNav();
+}
+
+function renderRest(){
+  $('rTeamName').textContent = restTeam;
+  $('rWeekLabel').textContent = weekLabel(restWeek);
+  $('rTeamPill').hidden = !(member && member.role === 'admin');
+  $('btnTeamManage').hidden = !canManage();
+  $('teamCount').textContent = (teamDoc.names || []).length ? `${teamDoc.names.length}명` : '';
+  const today = todayStr();
+  const box = $('restList');
+  box.innerHTML = '';
+  for (let i = 0; i < 7; i++){
+    const d = addDays(restWeek, i);
+    const names = (weekDoc.days || {})['d'+i] || [];
+    const b = document.createElement('button');
+    b.className = 'row';
+    b.innerHTML =
+      `<span class="l">${mdDow(d)}${d === today ? '<span class="tag">오늘</span>' : ''}</span>` +
+      `<span class="r"${names.length ? '' : ' style="color:var(--t4); font-weight:500; font-size:16px"'}>` +
+        `${names.length ? esc(names.join(', ')) : '-'}</span>` +
+      `<span class="c">${ico('next',20)}</span>`;
+    b.onclick = () => { sheetDay = i; openSheet('rest-day'); };
+    box.appendChild(b);
+  }
+}
+
+/* 요일에 이름을 넣고 뺀다. 스냅샷이 오기 전에 화면 먼저 바꾼다(즉시 반응) */
+function toggleRest(i, name, on){
+  api.setDoc(weekRef(), { days: { ['d'+i]: on ? api.arrayUnion(name) : api.arrayRemove(name) } }, { merge:true })
+     .catch(saveFailed);
+  const days = weekDoc.days || (weekDoc.days = {});
+  const arr = days['d'+i] || (days['d'+i] = []);
+  if (on && !arr.includes(name)) arr.push(name);
+  if (!on) days['d'+i] = arr.filter(n => n !== name);
+  renderRest();
+  if (sheetOn && sheetMode === 'rest-day') renderSheet();
+}
+
+/* ── 조원 관리 ── */
+function openTeam(){ show('team'); renderTeam(); pushNav(); }
+function renderTeam(){
+  $('tTitle').textContent = `${restTeam} 조원`;
+  const box = $('teamList');
+  box.innerHTML = '';
+  const names = teamDoc.names || [];
+  if (!names.length){ box.innerHTML = '<div class="blank">이름을 추가해 주세요</div>'; return; }
+  for (const n of names){
+    const el = document.createElement('div');
+    el.className = 'row';
+    el.innerHTML = `<span class="l" style="color:var(--t1); font-weight:600">${esc(n)}</span>`;
+    const del = document.createElement('button');
+    del.className = 'txtdel'; del.textContent = '빼기';
+    del.onclick = () => removeTeamName(n);
+    el.appendChild(del);
+    box.appendChild(el);
+  }
+}
+function addTeamName(){
+  const n = $('newName').value.trim();
+  if (!n) return;
+  if ((teamDoc.names || []).includes(n)){ tell('이미 있는 이름이에요', ''); return; }
+  api.setDoc(teamRef(), { names: api.arrayUnion(n) }, { merge:true }).catch(saveFailed);
+  teamDoc.names = [...(teamDoc.names || []), n];
+  $('newName').value = '';
+  renderTeam();
+  toast(`${n} 님을 추가했어요`);
+}
+async function removeTeamName(n){
+  const ok = await ask({ title:`${n} 님을 뺄까요?`, body:'이미 적어둔 휴무는 그대로 남아요.', ok:'빼기', danger:true });
+  if (!ok) return;
+  api.setDoc(teamRef(), { names: api.arrayRemove(n) }, { merge:true }).catch(saveFailed);
+  teamDoc.names = (teamDoc.names || []).filter(x => x !== n);
+  renderTeam();
+  toast(`${n} 님을 뺐어요`);
+}
+
+/* ── 회원 관리 (관리자) ── */
+function openAdmin(){ show('admin'); renderMembers(); pushNav(); loadMembers(); }
+async function loadMembers(){
+  try{
+    const qs = await api.getDocs(api.collection(fbStore, 'members'));
+    memberCache = qs.docs.map(d => ({ id: d.id, ...d.data() }))
+                         .sort((a,b) => (a.team||'').localeCompare(b.team||'') || a.id.localeCompare(b.id));
+  }catch(e){ console.warn('회원 목록 실패', e); }
+  renderMembers();
+}
+function renderMembers(){
+  const box = $('memberList');
+  box.innerHTML = '';
+  if (!memberCache.length){ box.innerHTML = '<div class="blank">등록된 회원이 없어요</div>'; return; }
+  for (const m of memberCache){
+    const el = document.createElement('div');
+    el.className = 'row';
+    el.innerHTML = `<span class="l" style="color:var(--t1); font-weight:600">${esc(m.id.replace('kakao:',''))}` +
+      `<small style="display:block; font-size:14px; font-weight:500; color:var(--t3); margin-top:2px">` +
+      `${esc(m.team || '조 없음')} · ${roleName(m.role)}</small></span>`;
+    const del = document.createElement('button');
+    del.className = 'txtdel'; del.textContent = '삭제';
+    del.onclick = () => removeMember(m.id);
+    el.appendChild(del);
+    box.appendChild(el);
+  }
+}
+async function addMember(){
+  const num = digits($('newMemberNum').value);
+  const team = $('newMemberTeam').value.trim();
+  if (!num){ tell('카카오 번호를 넣어 주세요', '본인 계정 화면에 나오는 숫자예요.'); return; }
+  if (!team && adminRole !== 'admin'){ tell('조 이름을 넣어 주세요', ''); return; }
+  try{
+    await api.setDoc(api.doc(fbStore, 'members', 'kakao:' + num), { role: adminRole, team: team || null });
+    $('newMemberNum').value = '';
+    toast('추가했어요');
+    loadMembers();
+    if (fbUser && 'kakao:' + num === fbUser.uid) checkMember(fbUser.uid);
+  }catch(e){ saveFailed(e); }
+}
+async function removeMember(id){
+  const self = !!(fbUser && id === fbUser.uid);
+  const ok = await ask({ title:'이 회원을 지울까요?',
+                         body: self ? '본인 계정이에요. 지우면 휴무표를 더 못 봐요.' : id.replace('kakao:',''),
+                         ok:'삭제', danger:true });
+  if (!ok) return;
+  try{
+    await api.deleteDoc(api.doc(fbStore, 'members', id));
+    toast('지웠어요');
+    loadMembers();
+    if (self) checkMember(id);
+  }catch(e){ saveFailed(e); }
+}
+
+/* ── 이미지로 공유 ──
+   주간 휴무표를 캔버스에 그려 파일로 만든 뒤 공유 창을 연다(카톡 선택).
+   공유가 안 되는 환경에서는 파일로 내려준다. */
+async function shareRest(){
+  const btn = $('ctaRest');
+  btn.disabled = true;
+  try{
+    await document.fonts.ready;
+    const S = 2, W = 620, rowH = 66, top = 92, bot = 24, H = top + rowH*7 + bot;
+    const cv = document.createElement('canvas');
+    cv.width = W*S; cv.height = H*S;
+    const x = cv.getContext('2d');
+    x.scale(S, S);
+    const F = "'Pretendard Variable', Pretendard, 'Malgun Gothic', sans-serif";
+    x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, W, H);
+    x.textBaseline = 'middle';
+    x.fillStyle = '#191F28';
+    x.font = `800 30px ${F}`;
+    x.fillText(`${mdShort(restWeek)}~${mdShort(addDays(restWeek,6))}  ${restTeam}휴무`, 30, 48);
+    for (let i = 0; i < 7; i++){
+      const d = addDays(restWeek, i);
+      const y = top + i*rowH;
+      const w = dowOf(d);
+      if (w === 0 || w === 6){ x.fillStyle = '#F7F9FB'; x.fillRect(0, y, W, rowH); }
+      x.strokeStyle = '#EEF1F4';
+      x.beginPath(); x.moveTo(30, y); x.lineTo(W-30, y); x.stroke();
+      x.fillStyle = w === 0 ? '#F04452' : w === 6 ? '#3182F6' : '#4E5968';
+      x.font = `700 22px ${F}`;
+      x.fillText(`${mdShort(d)} (${DOW[w]})`, 30, y + rowH/2);
+      const names = (weekDoc.days || {})['d'+i] || [];
+      x.fillStyle = '#191F28';
+      x.font = `600 24px ${F}`;
+      x.fillText(names.join(', '), 190, y + rowH/2);
+    }
+    const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
+    const file = new File([blob], `${restTeam}휴무_${mdShort(restWeek).replace('/','월')}일주.png`, { type:'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })){
+      await navigator.share({ files: [file] });
+    } else {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = file.name;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      toast('이미지를 저장했어요');
+    }
+  }catch(err){
+    if (err && err.name === 'AbortError') return;   // 공유 창을 그냥 닫은 것
+    console.warn(err);
+    tell('이미지를 만들지 못했어요', '다시 한 번 눌러 주세요.');
+  }finally{
+    btn.disabled = false;
+  }
+}
+
 
 /* ── 날짜 ── */
 function todayStr(){
@@ -859,7 +1201,8 @@ function padPress(k){
 }
 const depthNow = () => (history.state && history.state.depth) || 0;
 const snap = depth => ({ depth, view:curView, sheet: sheetOn ? sheetMode : null,
-                         modal: modalOn, editDate, editMode, bulkKey, rateDate });
+                         modal: modalOn, editDate, editMode, bulkKey, rateDate,
+                         restTeam, restWeek, sheetDay });
 const pushNav    = () => history.pushState(snap(depthNow()+1), '');
 const replaceNav = () => history.replaceState(snap(depthNow()), '');
 /* 저장을 마쳤으면 홈까지 한 번에 되돌린다 (뒤로가기로 입력 화면에 되돌아가지 않게) */
@@ -1164,6 +1507,62 @@ function renderSheet(){
       });
       box.appendChild(b);
     }
+  } else if (sheetMode === 'rest-week'){
+    $('sTitle').textContent = '주 선택';
+    const thisWeek = sundayOf(today);
+    // 휴무는 앞으로 계획하는 것이라 다음 주들이 필요하다
+    for (let off = -4; off <= 8; off++){
+      const w = addDays(thisWeek, off*7);
+      const b = document.createElement('button');
+      b.className = 'row' + (w === restWeek ? ' sel' : '');
+      b.innerHTML = `<span class="l">${weekLabel(w)}${w === thisWeek ? '<span class="tag">이번 주</span>' : ''}</span>` +
+        `<span class="c">${w === restWeek ? ico('check',18) : ''}</span>`;
+      b.onclick = () => closeSheetThen(() => { restWeek = w; subscribeRest(); renderRest(); replaceNav(); });
+      box.appendChild(b);
+    }
+  } else if (sheetMode === 'rest-day'){
+    // 이름을 누르면 그 요일에 넣고 빼는 토글. 시트는 열린 채로 둔다
+    const d = addDays(restWeek, sheetDay);
+    $('sTitle').textContent = `${mdDow(d)} 휴무`;
+    const names = teamDoc.names || [];
+    if (!names.length){
+      box.innerHTML = `<div class="blank">조원이 아직 없어요${canManage() ? '<br>조원 관리에서 이름을 추가해 주세요' : ''}</div>`;
+    }
+    const cur = (weekDoc.days || {})['d'+sheetDay] || [];
+    for (const n of names){
+      const mine = cur.includes(n);
+      let other = null;
+      for (let i = 0; i < 7 && other === null; i++){
+        if (i !== sheetDay && (((weekDoc.days || {})['d'+i]) || []).includes(n)) other = i;
+      }
+      const b = document.createElement('button');
+      b.className = 'row' + (mine ? ' sel' : '');
+      b.innerHTML = `<span class="l">${esc(n)}</span>` +
+        `<span class="r">${mine ? '이 날 휴무' : (other !== null ? mdDow(addDays(restWeek, other)) : '')}</span>` +
+        `<span class="c">${mine ? ico('check',18) : ''}</span>`;
+      b.onclick = () => toggleRest(sheetDay, n, !mine);
+      box.appendChild(b);
+    }
+  } else if (sheetMode === 'rest-team'){
+    $('sTitle').textContent = '조 선택';
+    box.innerHTML = `<div class="blank">불러오는 중…</div>`;
+    (async () => {
+      let teams = [];
+      try{
+        const qs = await api.getDocs(api.collection(fbStore, 'members'));
+        teams = [...new Set(qs.docs.map(x => x.data().team).filter(Boolean))].sort();
+      }catch(e){}
+      if (!sheetOn || sheetMode !== 'rest-team') return;   // 그새 닫혔으면 그만둔다
+      box.innerHTML = '';
+      if (!teams.length){ box.innerHTML = `<div class="blank">등록된 조가 없어요</div>`; return; }
+      for (const t of teams){
+        const b = document.createElement('button');
+        b.className = 'row' + (t === restTeam ? ' sel' : '');
+        b.innerHTML = `<span class="l">${esc(t)}</span><span class="c">${t === restTeam ? ico('check',18) : ''}</span>`;
+        b.onclick = () => closeSheetThen(() => { restTeam = t; subscribeRest(); renderRest(); replaceNav(); });
+        box.appendChild(b);
+      }
+    })();
   } else {
     const forBulk = sheetMode === 'month-bulk';
     const sel = forBulk ? bulkKey : cursor;
@@ -1201,6 +1600,23 @@ $('btnBulk').onclick = openBulk;
 $('btnPriceField').onclick = openPrice;
 $('btnMore').onclick = () => { renderAccount(); show('more'); pushNav(); };
 
+/* ── 휴무표 ── */
+$('btnRest').onclick = openRest;
+$('rWeekPill').onclick = () => openSheet('rest-week');
+$('rTeamPill').onclick = () => openSheet('rest-team');
+$('btnTeamManage').onclick = openTeam;
+$('ctaRest').onclick = shareRest;
+$('btnAdmin').onclick = openAdmin;
+$('btnAddName').onclick = addTeamName;
+$('newName').addEventListener('keydown', e => { if (e.key === 'Enter') addTeamName(); });
+$('btnAddMember').onclick = addMember;
+$('roleSeg').onclick = e => {
+  const b = e.target.closest('button[data-role]');
+  if (!b) return;
+  adminRole = b.dataset.role;
+  [...$('roleSeg').children].forEach(x => x.classList.toggle('on', x === b));
+};
+
 /* 화면 안의 뒤로가기 버튼도 시스템 뒤로가기와 똑같이 동작해야 한다 */
 document.querySelectorAll('[data-back]').forEach(b => b.onclick = () => history.back());
 $('dim').onclick = () => history.back();
@@ -1218,6 +1634,9 @@ document.addEventListener('keydown', e => {
    홈(depth 0)에서 한 번 더 누르면 앱이 닫힌다 */
 window.addEventListener('popstate', e => {
   const s = e.state || { view:'home', sheet:null };
+  if (s.restTeam) restTeam = s.restTeam;
+  if (s.restWeek) restWeek = s.restWeek;
+  if (s.sheetDay !== undefined && s.sheetDay !== null) sheetDay = s.sheetDay;
 
   // 확인창이 열려 있었는데 돌아온 자리에 없으면 닫고 결과를 넘긴다(뒤로가기 = 취소)
   let settle = null;
@@ -1251,6 +1670,13 @@ window.addEventListener('popstate', e => {
     show('price'); renderPrice();
   } else if (v === 'more'){
     show('more');
+  } else if (v === 'rest'){
+    if (member && !unTeam) subscribeRest();
+    show('rest'); renderRest();
+  } else if (v === 'team'){
+    show('team'); renderTeam();
+  } else if (v === 'admin'){
+    show('admin'); renderMembers();
   } else {
     show('home'); renderHome();
   }
