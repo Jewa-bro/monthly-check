@@ -305,6 +305,13 @@ button{font:inherit; letter-spacing:inherit; cursor:pointer}
 .calcell.out .nm{color:var(--t4)}
 /* 이름 고르기처럼 여러 번 누르는 시트의 바닥 확인 버튼 */
 .sfoot{padding:10px 0 6px}
+/* 버튼 안에서 도는 작업 표시 */
+.spin{
+  width:18px; height:18px; border-radius:50%; display:inline-block;
+  border:2.5px solid rgba(255,255,255,.35); border-top-color:#fff;
+  vertical-align:-4px; margin-right:8px; animation:spin .7s linear infinite;
+}
+@keyframes spin{to{transform:rotate(360deg)}}
 
 /* ───── 확인창 ─────
    기기 기본 confirm/alert 은 모양을 정할 수 없고 앱 밖의 것처럼 보인다.
@@ -548,7 +555,7 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
         <span class="car"><svg width="16" height="16"><use href="#i-caret"/></svg></span>
       </button>
     </div>
-    <div class="bar" style="min-height:48px; gap:8px">
+    <div class="bar" style="min-height:48px; gap:8px; margin-bottom:12px">
       <button class="pill sm" id="rWeekPill">
         <span id="rWeekLabel">-</span>
         <span class="car"><svg width="16" height="16"><use href="#i-caret"/></svg></span>
@@ -1146,6 +1153,7 @@ async function removeMember(id){
 async function shareRest(){
   const btn = $('ctaRest');
   btn.disabled = true;
+  btn.innerHTML = '<span class="spin"></span>이미지 만드는 중…';
   try{
     await document.fonts.ready;
     const S = 2, W = 620, rowH = 66, top = 92, bot = 24, H = top + rowH*7 + bot;
@@ -1176,6 +1184,9 @@ async function shareRest(){
     }
     const blob = await new Promise(r => cv.toBlob(r, 'image/png'));
     const file = new File([blob], `${restTeam}휴무_${mdShort(restWeek).replace('/','월')}일주.png`, { type:'image/png' });
+    // 이미지는 완성 — 여기부터는 OS 공유 창이 피드백이므로 버튼을 되돌린다
+    btn.disabled = false;
+    btn.textContent = '이미지로 공유하기';
     if (navigator.canShare && navigator.canShare({ files: [file] })){
       await navigator.share({ files: [file] });
     } else {
@@ -1192,6 +1203,7 @@ async function shareRest(){
     tell('이미지를 만들지 못했어요', '다시 한 번 눌러 주세요.');
   }finally{
     btn.disabled = false;
+    btn.textContent = '이미지로 공유하기';
   }
 }
 
