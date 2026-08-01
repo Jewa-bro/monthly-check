@@ -1675,20 +1675,24 @@ function renderSheet(){
     // 이름을 누르면 그 요일에 넣고 빼는 토글. 시트는 열린 채로 둔다
     const d = addDays(restWeek, sheetDay);
     $('sTitle').textContent = `${mdDow(d)} 휴무`;
-    const names = teamDoc.names || [];
+    const teamNames = teamDoc.names || [];
+    const cur = (weekDoc.days || {})['d'+sheetDay] || [];
+    // 조에서 빠진 사람의 흔적도 지울 수 있어야 한다 — 이 날에 적힌 이름은
+    // 명단에 없어도 함께 보여준다. 안 그러면 지울 방법이 없다
+    const names = [...teamNames, ...cur.filter(n => !teamNames.includes(n))];
     if (!names.length){
       box.innerHTML = `<div class="blank">조원이 아직 없어요${canManage() ? '<br>조원 관리에서 이름을 추가해 주세요' : ''}</div>`;
     }
-    const cur = (weekDoc.days || {})['d'+sheetDay] || [];
     for (const n of names){
       const mine = cur.includes(n);
+      const left = !teamNames.includes(n);
       let other = null;
       for (let i = 0; i < 7 && other === null; i++){
         if (i !== sheetDay && (((weekDoc.days || {})['d'+i]) || []).includes(n)) other = i;
       }
       const b = document.createElement('button');
       b.className = 'row' + (mine ? ' sel' : '');
-      b.innerHTML = `<span class="l">${esc(n)}</span>` +
+      b.innerHTML = `<span class="l">${esc(n)}${left ? '<span class="tag" style="background:var(--press); color:var(--t3)">조에서 빠짐</span>' : ''}</span>` +
         `<span class="r">${mine ? '이 날 휴무' : (other !== null ? mdDow(addDays(restWeek, other)) : '')}</span>` +
         `<span class="c">${mine ? ico('check',18) : ''}</span>`;
       b.onclick = () => toggleRest(sheetDay, n, !mine);
