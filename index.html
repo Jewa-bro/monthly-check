@@ -261,6 +261,8 @@ button{font:inherit; letter-spacing:inherit; cursor:pointer}
   background:#FEE500; color:#191600;
 }
 .gbtn:active{background:#EFD800}
+.gbtn2{background:var(--white); color:var(--t1); border:1.5px solid var(--press); margin-top:10px}
+.gbtn2:active{background:#F1F3F5}
 .gbtn .glogo{display:flex}
 .gretry{display:block; margin:16px auto 0; font-size:15px; padding:8px}
 
@@ -406,6 +408,7 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
       </span>
       카카오로 시작하기
     </button>
+    <button class="btn gbtn2" id="btnLoginG" hidden>구글로 시작하기</button>
     <button class="linkbtn gretry" id="btnRetry" hidden>다시 시도</button>
   </div>
 </div>
@@ -602,7 +605,7 @@ body.pad-on .app{padding-bottom:calc(var(--padH, 250px) + 110px)}
       <div class="htitle">회원 관리</div>
     </div>
     <div class="namerow">
-      <input id="newMemberNum" type="text" inputmode="numeric" placeholder="카카오 번호 (계정 화면의 숫자)" autocomplete="off">
+      <input id="newMemberNum" type="text" placeholder="카카오 번호 또는 구글 이메일" autocomplete="off">
     </div>
     <div class="namerow">
       <input id="newMemberTeam" type="text" maxlength="10" placeholder="조 이름 (예: W1)" autocomplete="off">
@@ -782,6 +785,7 @@ function gate(mode, err){
   const g = $('gate'), msg = $('gMsg');
   g.classList.remove('off');
   $('btnLogin').hidden = mode !== 'signin' && mode !== 'fail';
+  $('btnLoginG').hidden = $('btnLogin').hidden;
   $('btnRetry').hidden = mode !== 'net';
   if (mode === 'wait')   msg.innerHTML = '잠시만요…';
   if (mode === 'signin') msg.innerHTML = '';
@@ -906,7 +910,11 @@ const weekRef = () => api.doc(fbStore, 'teams', restTeam, 'weeks', restWeek);
 
 async function checkMember(uid){
   try{
-    const snap = await api.getDoc(api.doc(fbStore, 'members', uid));
+    let snap = await api.getDoc(api.doc(fbStore, 'members', uid));
+    if (!snap.exists() && fbUser && fbUser.email){
+      // 구글 사용자는 uid 가 무작위 글자라 알기 어렵다 — 이메일로 등록하고 이메일로 찾는다
+      snap = await api.getDoc(api.doc(fbStore, 'members', fbUser.email.toLowerCase()));
+    }
     member = snap.exists() ? snap.data() : null;
   }catch(e){ member = null; }
   $('btnRest').hidden = !member;
@@ -1121,16 +1129,20 @@ function renderMembers(){
   }
 }
 async function addMember(){
-  const num = digits($('newMemberNum').value);
+  const raw = $('newMemberNum').value.trim();
   const team = $('newMemberTeam').value.trim();
-  if (!num){ tell('카카오 번호를 넣어 주세요', '본인 계정 화면에 나오는 숫자예요.'); return; }
+  // 카카오는 번호, 구글은 이메일 — @ 가 있으면 이메일로 본다
+  let id = null;
+  if (raw.includes('@')) id = raw.toLowerCase();
+  else if (digits(raw)) id = 'kakao:' + digits(raw);
+  if (!id){ tell('카카오 번호나 구글 이메일을 넣어 주세요', '카카오는 계정 화면에 나오는 숫자예요.'); return; }
   if (!team && adminRole !== 'admin'){ tell('조 이름을 넣어 주세요', ''); return; }
   try{
-    await api.setDoc(api.doc(fbStore, 'members', 'kakao:' + num), { role: adminRole, team: team || null });
+    await api.setDoc(api.doc(fbStore, 'members', id), { role: adminRole, team: team || null });
     $('newMemberNum').value = '';
     toast('추가했어요');
     loadMembers();
-    if (fbUser && 'kakao:' + num === fbUser.uid) checkMember(fbUser.uid);
+    if (fbUser && (id === fbUser.uid || (fbUser.email && id === fbUser.email.toLowerCase()))) checkMember(fbUser.uid);
   }catch(e){ saveFailed(e); }
 }
 async function removeMember(id){
@@ -1985,6 +1997,16 @@ $('btnLogin').onclick = () => {
     + `?client_id=${KAKAO_KEY}`
     + `&redirect_uri=${encodeURIComponent(REDIRECT)}`
     + '&response_type=code';
+};
+$('btnLoginG').onclick = async () => {
+  gate('wait');
+  try{
+    await api.signInWithPopup(fbAuth, new api.GoogleAuthProvider());
+  }catch(err){
+    // 팝업이 막히는 환경은 페이지 이동 방식으로
+    try{ await api.signInWithRedirect(fbAuth, new api.GoogleAuthProvider()); }
+    catch(e2){ gate('fail', e2); }
+  }
 };
 $('btnRetry').onclick = () => { gate('wait'); startCloud(); };
 $('btnLogout').onclick = async () => {
